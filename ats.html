@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claves Health — ATS 3.0</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+
+<!-- ══════════════════════════════════════════════════
+     FIREBASE CONFIG — substitua pelos seus dados
+     Veja o passo a passo no README abaixo
+═══════════════════════════════════════════════════ -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyABAMCRg84FCvR0rULz1WfAOFqWRnZY3do",
+    authDomain: "claves-ats.firebaseapp.com",
+    projectId: "claves-ats",
+    storageBucket: "claves-ats.firebasestorage.app",
+    messagingSenderId: "668667602959",
+    appId: "1:668667602959:web:0720f2f71cc4b160ac9b7a"
+  };
+
+  const ALLOWED_EMAILS = [
+    "aline@claves.com.br",
+    "juliana@claves.com.br",
+    "debora@claves.com.br",
+    "lari.zandonade@claves.com.br",
+    "eva@claves.com.br"
+  ];
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+  const REF = doc(db, "claves_ats", "db");
+
+  window._fbLogin = async (email, password) => {
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      if (!ALLOWED_EMAILS.includes(cred.user.email)) {
+        await signOut(auth);
+        return { error: "E-mail não autorizado." };
+      }
+      return { user: cred.user };
+    } catch(e) {
+      if (e.code === "auth/invalid-credential" || e.code === "auth/wrong-password" || e.code === "auth/user-not-found") {
+        return { error: "E-mail ou senha incorretos." };
+      }
+      return { error: "Erro ao fazer login. Tente novamente." };
+    }
+  };
+
+  window._fbLogout = async () => { await signOut(auth); };
+
+  window._fbSave = async (data) => {
+    try {
+      await setDoc(REF, { payload: JSON.stringify(data), ts: Date.now() });
+      window._setSyncStatus("live");
+    } catch(e) {
+      console.error("Erro ao salvar:", e);
+      window._setSyncStatus("error");
+    }
+  };
+
+  window._fbLoad = async () => {
+    try {
+      const snap = await getDoc(REF);
+      if (snap.exists()) return JSON.parse(snap.data().payload);
+    } catch(e) { console.error("Erro ao carregar:", e); }
+    return null;
+  };
+
+  onSnapshot(REF, (snap) => {
+    if (!snap.exists()) return;
+    try {
+      const incoming = JSON.parse(snap.data().payload);
+      if (window._onRemoteChange) window._onRemoteChange(incoming, snap.data().ts);
+    } catch(e) {}
+  });
+
+  onAuthStateChanged(auth, (user) => {
+    if (user && ALLOWED_EMAILS.includes(user.email)) {
+      window._currentUser = user;
+      if (window._onAuthReady) window._onAuthReady(user);
+    } else {
+      window._currentUser = null;
+      if (window._onAuthLogout) window._onAuthLogout();
+    }
+  });
+
+  window._firebaseReady = true;
+  if (window._onFirebaseReady) window._onFirebaseReady();
+</script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0D1B2E;--blue:#1A5C96;--blue-mid:#2C6FAD;--blue-lit:#D6E8F7;--blue-pal:#EEF5FC;
+  --teal:#0D7A6B;--teal-lit:#D4F0EB;--teal-pal:#EAF7F5;
+  --green:#1A6B3A;--green-lt:#E8F5EE;
+  --amber:#8B4500;--amber-lt:#FFF4E0;
+  --purple:#4A3AAA;--purple-lt:#EEEDFE;
+  --red:#B91C1C;--red-lt:#FEF2F2;
+  --gray:#F5F7FA;--gray-mid:#E0E4EA;--gray-dk:#8A94A6;
+  --dark:#1A2B3C;--white:#FFFFFF;
+  --r:10px;--rs:6px;
+}
+body{font-family:'DM Sans',sans-serif;background:#EEF2F7;color:var(--dark);font-size:14px;min-height:100vh}
+.shell{display:flex;min-height:100vh}
+.sidebar{width:220px;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-logo{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.logo-row{display:flex;align-items:center;gap:9px}
+.logo-row svg{width:26px;height:26px;flex-shrink:0}
+.logo-name{font-size:16px;font-weight:600;color:#fff}
+.logo-ver{font-size:10px;background:var(--blue);color:#fff;padding:1px 6px;border-radius:20px}
+.sync-pill{display:flex;align-items:center;gap:6px;padding:7px 12px;margin:8px 10px 0;border-radius:20px;background:rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.5)}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#555;flex-shrink:0;transition:background .3s}
+.sync-dot.live{background:#22c55e;animation:blink 2.5s infinite}
+.sync-dot.saving{background:#f59e0b;animation:blink .5s infinite}
+.sync-dot.error{background:var(--red)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.nav-group{padding:12px 10px 4px}
+.nav-label{font-size:10px;font-weight:600;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin-bottom:4px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--rs);cursor:pointer;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;transition:all .15s;border:none;background:transparent;width:100%;text-align:left}
+.nav-item:hover{background:rgba(255,255,255,.08);color:#fff}
+.nav-item.active{background:var(--blue);color:#fff}
+.nav-item i{font-size:17px;flex-shrink:0}
+.nav-count{margin-left:auto;font-size:10px;background:rgba(255,255,255,.15);padding:1px 7px;border-radius:20px}
+.nav-item.active .nav-count{background:rgba(255,255,255,.25)}
+.content{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{background:#fff;border-bottom:1px solid var(--gray-mid);padding:0 24px;height:54px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
+.page-title{font-size:15px;font-weight:600;color:var(--dark)}
+.page-sub{font-size:12px;color:var(--gray-dk);margin-left:4px}
+.topbar-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.main{padding:20px 24px;flex:1}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--rs);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;font-family:inherit;white-space:nowrap}
+.btn i{font-size:15px}
+.btn-primary{background:var(--blue);color:#fff}.btn-primary:hover{background:var(--blue-mid)}
+.btn-ghost{background:rgba(255,255,255,.1);color:#fff}.btn-ghost:hover{background:rgba(255,255,255,.18)}
+.btn-sm{padding:5px 11px;font-size:12px}.btn-xs{padding:3px 8px;font-size:11px}
+.btn-outline{background:transparent;border:1px solid var(--gray-mid);color:var(--dark)}.btn-outline:hover{background:var(--gray)}
+.btn-danger{background:var(--red-lt);color:var(--red);border:1px solid #FECACA}.btn-danger:hover{background:#FEE2E2}
+.btn-teal{background:var(--teal-pal);color:var(--teal);border:1px solid var(--teal-lit)}.btn-teal:hover{background:var(--teal-lit)}
+.btn-green{background:var(--green-lt);color:var(--green);border:1px solid #BBF7D0}
+.btn-purple{background:var(--purple-lt);color:var(--purple);border:1px solid #C4C0F0}
+.btn-amber{background:var(--amber-lt);color:var(--amber);border:1px solid #FCD34D}
+.card{background:#fff;border-radius:var(--r);border:1px solid var(--gray-mid);padding:16px 20px}
+.card-sm{background:#fff;border-radius:var(--rs);border:1px solid var(--gray-mid);padding:12px 14px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:20px}
+.stat{background:#fff;border-radius:var(--r);border:1px solid var(--gray-mid);padding:14px 16px}
+.stat-label{font-size:11px;font-weight:600;color:var(--gray-dk);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.stat-val{font-size:24px;font-weight:600;font-family:'DM Mono',monospace}
+.stat-hint{font-size:11px;color:var(--gray-dk);margin-top:2px}
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.search-box{position:relative;flex:1;min-width:180px;max-width:300px}
+.search-box input{width:100%;padding:8px 10px 8px 32px;border:1px solid var(--gray-mid);border-radius:var(--rs);font-size:13px;font-family:inherit;outline:none;color:var(--dark);background:#fff}
+.search-box input:focus{border-color:var(--blue)}
+.search-box i{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--gray-dk);font-size:15px}
+.filter-sel{padding:8px 10px;border:1px solid var(--gray-mid);border-radius:var(--rs);font-size:13px;font-family:inherit;background:#fff;color:var(--dark);outline:none;cursor:pointer}
+.view-switch{display:flex;gap:2px;background:var(--gray-mid);padding:3px;border-radius:var(--rs)}
+.vs-btn{padding:5px 12px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;color:var(--gray-dk);border:none;background:transparent;font-family:inherit;transition:all .15s}
+.vs-btn.on{background:#fff;color:var(--dark);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.tbl-wrap{background:#fff;border-radius:var(--r);border:1px solid var(--gray-mid);overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--gray);padding:9px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--gray-dk);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--gray-mid);white-space:nowrap}
+td{padding:10px 14px;border-bottom:1px solid #F0F4F8;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--blue-pal)}
+.td-name{font-weight:600}
+.td-mono{font-family:'DM Mono',monospace;font-size:12px;color:var(--gray-dk)}
+.badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.b-triagem{background:var(--amber-lt);color:var(--amber)}
+.b-entrevista{background:var(--blue-pal);color:var(--blue)}
+.b-proposta{background:var(--purple-lt);color:var(--purple)}
+.b-contratado{background:var(--green-lt);color:var(--green)}
+.b-reprovado{background:var(--red-lt);color:var(--red)}
+.b-aberta{background:var(--green-lt);color:var(--green)}
+.b-pausada{background:var(--amber-lt);color:var(--amber)}
+.b-cancelada{background:var(--red-lt);color:var(--red)}
+.b-encerrada{background:var(--gray-mid);color:var(--gray-dk)}
+.sla-ok{color:var(--green);font-weight:600}.sla-warn{color:var(--amber);font-weight:600}.sla-late{color:var(--red);font-weight:600}.sla-none{color:var(--gray-dk)}
+.sla-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+.sla-table th{background:var(--gray);padding:7px 10px;text-align:left;font-size:10px;font-weight:600;color:var(--gray-dk);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--gray-mid)}
+.sla-table td{padding:8px 10px;border-bottom:1px solid #F0F4F8;vertical-align:middle}
+.sla-table tr:last-child td{border-bottom:none}
+.sla-bar-wrap{width:80px;height:6px;background:var(--gray-mid);border-radius:3px;display:inline-block;vertical-align:middle;margin-left:6px}
+.sla-bar-fill{height:6px;border-radius:3px}
+.kanban{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px}
+.k-col{flex:0 0 220px;background:var(--gray);border-radius:var(--r);padding:10px;min-height:360px}
+.k-col-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.k-col-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.k-col-n{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px}
+.k-card{background:#fff;border-radius:var(--rs);padding:11px;margin-bottom:7px;border:1px solid var(--gray-mid);cursor:pointer;transition:all .15s}
+.k-card:hover{border-color:var(--blue);transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.08)}
+.k-name{font-size:13px;font-weight:600;margin-bottom:3px}
+.k-sub{font-size:11px;color:var(--gray-dk);margin-bottom:6px}
+.k-tags{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px}
+.k-foot{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--gray-dk)}
+.col-triagem .k-col-title{color:var(--amber)}.col-triagem .k-col-n{background:var(--amber-lt);color:var(--amber)}.col-triagem .k-card{border-left:3px solid var(--amber)}
+.col-entrevista .k-col-title{color:var(--blue)}.col-entrevista .k-col-n{background:var(--blue-pal);color:var(--blue)}.col-entrevista .k-card{border-left:3px solid var(--blue)}
+.col-proposta .k-col-title{color:var(--purple)}.col-proposta .k-col-n{background:var(--purple-lt);color:var(--purple)}.col-proposta .k-card{border-left:3px solid var(--purple)}
+.col-contratado .k-col-title{color:var(--green)}.col-contratado .k-col-n{background:var(--green-lt);color:var(--green)}.col-contratado .k-card{border-left:3px solid var(--green)}
+.col-reprovado .k-col-title{color:var(--red)}.col-reprovado .k-col-n{background:var(--red-lt);color:var(--red)}.col-reprovado .k-card{border-left:3px solid var(--red)}
+.adh-bar{height:8px;border-radius:4px;background:var(--gray-mid);overflow:hidden;margin-top:4px}
+.adh-fill{height:8px;border-radius:4px;transition:width .6s}
+.adh-high{background:var(--green)}.adh-mid{background:var(--amber)}.adh-low{background:var(--red)}
+.adh-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(13,27,46,.55);z-index:200;align-items:center;justify-content:center;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:var(--r);width:100%;max-width:620px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-hd{padding:18px 22px 14px;border-bottom:1px solid var(--gray-mid);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1}
+.modal-title{font-size:15px;font-weight:600}
+.modal-x{background:none;border:none;font-size:18px;cursor:pointer;color:var(--gray-dk);padding:3px 6px;border-radius:4px}
+.modal-x:hover{background:var(--gray)}
+.modal-body{padding:18px 22px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-body.single{grid-template-columns:1fr}
+.fg{display:flex;flex-direction:column;gap:4px}.fg.full{grid-column:1/-1}
+.fl{font-size:12px;font-weight:500;color:var(--dark)}
+.fi{padding:8px 11px;border:1px solid var(--gray-mid);border-radius:var(--rs);font-size:13px;font-family:inherit;color:var(--dark);outline:none;transition:border .15s;width:100%}
+.fi:focus{border-color:var(--blue)}
+textarea.fi{resize:vertical;min-height:80px}
+.modal-ft{padding:14px 22px;border-top:1px solid var(--gray-mid);display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:#fff}
+.panel-bg{display:none;position:fixed;inset:0;background:rgba(13,27,46,.4);z-index:200}
+.panel-bg.open{display:block}
+.panel{position:fixed;right:0;top:0;bottom:0;width:460px;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.12);display:flex;flex-direction:column;overflow-y:auto;z-index:201}
+.panel-top{background:var(--navy);padding:22px 20px 18px;flex-shrink:0}
+.panel-name{font-size:17px;font-weight:600;color:#fff;margin-bottom:3px}
+.panel-sub{font-size:12px;color:rgba(255,255,255,.55)}
+.panel-body{padding:18px 20px;flex:1}
+.ps-title{font-size:10px;font-weight:600;color:var(--gray-dk);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--gray-mid)}
+.prow{display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid #F0F4F8;gap:12px}
+.prow:last-child{border-bottom:none}
+.pk{font-size:12px;color:var(--gray-dk);flex-shrink:0}
+.pv{font-size:12px;font-weight:500;text-align:right;word-break:break-word;max-width:280px}
+.panel-sec{margin-bottom:18px}
+.panel-ft{padding:14px 20px;border-top:1px solid var(--gray-mid);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
+.client-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.client-card{background:#fff;border-radius:var(--r);border:1px solid var(--gray-mid);padding:16px;cursor:pointer;transition:all .15s}
+.client-card:hover{border-color:var(--blue);box-shadow:0 3px 12px rgba(0,0,0,.08)}
+.cc-top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.cc-avatar{width:40px;height:40px;border-radius:8px;background:var(--blue-pal);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:var(--blue);flex-shrink:0}
+.cc-name{font-size:14px;font-weight:600;color:var(--dark)}
+.cc-seg{font-size:12px;color:var(--gray-dk)}
+.cc-stats{display:flex;gap:12px;font-size:12px;color:var(--gray-dk);padding-top:10px;border-top:1px solid var(--gray-mid);flex-wrap:wrap}
+.proc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.proc-card{background:#fff;border-radius:var(--r);border:1px solid var(--gray-mid);padding:16px;cursor:pointer;transition:all .15s}
+.proc-card:hover{border-color:var(--blue);box-shadow:0 3px 12px rgba(0,0,0,.08)}
+.proc-detail{padding:0}
+.proc-detail-header{background:var(--navy);padding:20px 24px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.proc-detail-title{font-size:18px;font-weight:600;color:#fff;margin-bottom:4px}
+.proc-detail-sub{font-size:12px;color:rgba(255,255,255,.55)}
+.proc-detail-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.proc-meta-tag{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.1);border-radius:20px;padding:3px 10px;font-size:11px;color:rgba(255,255,255,.75)}
+.proc-detail-body{padding:20px 24px}
+.proc-section{background:#fff;border-radius:var(--r);border:1px solid var(--gray-mid);margin-bottom:16px;overflow:hidden}
+.proc-section-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--gray-mid);background:var(--gray)}
+.proc-section-title{font-size:12px;font-weight:600;color:var(--dark);text-transform:uppercase;letter-spacing:.05em}
+.proc-section-body{padding:14px 16px}
+.proc-kanban{display:flex;gap:10px;overflow-x:auto;padding:14px 16px}
+.pk-col{flex:0 0 190px;background:var(--gray);border-radius:var(--rs);padding:8px;min-height:120px}
+.pk-col-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.pk-col-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.pk-col-n{font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px}
+.pk-card{background:#fff;border-radius:var(--rs);padding:9px 10px;margin-bottom:6px;border:1px solid var(--gray-mid);cursor:pointer;transition:all .15s}
+.pk-card:hover{border-color:var(--blue);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.pk-name{font-size:12px;font-weight:600;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-sub{font-size:10px;color:var(--gray-dk);margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-foot{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--gray-dk)}
+.pk-add{width:100%;border:1.5px dashed var(--gray-mid);background:transparent;border-radius:var(--rs);padding:7px;font-size:11px;color:var(--gray-dk);cursor:pointer;font-family:inherit;transition:all .15s;margin-top:4px}
+.pk-add:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-pal)}
+.col-triagem .pk-col-title{color:var(--amber)}.col-triagem .pk-col-n{background:var(--amber-lt);color:var(--amber)}.col-triagem .pk-card{border-left:3px solid var(--amber)}
+.col-entrevista .pk-col-title{color:var(--blue)}.col-entrevista .pk-col-n{background:var(--blue-pal);color:var(--blue)}.col-entrevista .pk-card{border-left:3px solid var(--blue)}
+.col-proposta .pk-col-title{color:var(--purple)}.col-proposta .pk-col-n{background:var(--purple-lt);color:var(--purple)}.col-proposta .pk-card{border-left:3px solid var(--purple)}
+.col-contratado .pk-col-title{color:var(--green)}.col-contratado .pk-col-n{background:var(--green-lt);color:var(--green)}.col-contratado .pk-card{border-left:3px solid var(--green)}
+.col-reprovado .pk-col-title{color:var(--red)}.col-reprovado .pk-col-n{background:var(--red-lt);color:var(--red)}.col-reprovado .pk-card{border-left:3px solid var(--red)}
+.stage-move-btn{font-size:10px;padding:2px 7px;border-radius:4px;cursor:pointer;border:1px solid var(--gray-mid);background:#fff;font-family:inherit;color:var(--dark);transition:all .12s}
+.stage-move-btn:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
+.pc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.pc-title{font-size:14px;font-weight:600;color:var(--dark)}
+.pc-client{font-size:12px;color:var(--gray-dk);margin-bottom:8px}
+.pc-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.pc-bar{background:var(--gray);border-radius:4px;height:4px;margin-bottom:6px}
+.pc-bar-fill{background:var(--blue);border-radius:4px;height:4px;transition:width .3s}
+.pc-foot{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--gray-dk);padding-top:10px;border-top:1px solid var(--gray-mid)}
+.upload-zone{border:2px dashed var(--gray-mid);border-radius:var(--rs);padding:20px;text-align:center;cursor:pointer;transition:all .15s;background:var(--gray)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--blue);background:var(--blue-pal)}
+.upload-zone i{font-size:28px;color:var(--gray-dk);display:block;margin-bottom:6px}
+.upload-label{font-size:13px;color:var(--gray-dk)}
+.upload-sub{font-size:11px;color:var(--gray-dk);margin-top:3px}
+.upload-success{font-size:12px;color:var(--green);font-weight:500;margin-top:6px}
+.ai-box{background:var(--navy);border-radius:var(--rs);padding:14px 16px;margin-top:12px}
+.ai-title{font-size:12px;font-weight:600;color:#fff;margin-bottom:6px}
+.ai-text{font-size:12px;color:rgba(255,255,255,.75);line-height:1.6;white-space:pre-wrap}
+.ai-loading{display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.6)}
+.ai-dot{width:6px;height:6px;border-radius:50%;background:var(--blue-lit);animation:pulse 1.4s infinite}
+.ai-dot:nth-child(2){animation-delay:.2s}.ai-dot:nth-child(3){animation-delay:.4s}
+@keyframes pulse{0%,80%,100%{opacity:.3}40%{opacity:1}}
+.jd-body{background:var(--gray);border-radius:var(--rs);padding:14px;font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word;max-height:260px;overflow-y:auto}
+.link-box{display:flex;align-items:center;gap:8px;background:var(--blue-pal);border:1px solid var(--blue-lit);border-radius:var(--rs);padding:10px 14px;margin-top:10px}
+.link-url{font-size:12px;font-family:'DM Mono',monospace;color:var(--blue);flex:1;word-break:break-all}
+.apply-wrap{display:none;min-height:100vh;background:linear-gradient(135deg,#0D1B2E 0%,#1A5C96 100%);align-items:center;justify-content:center;padding:24px}
+.apply-wrap.show{display:flex}
+.apply-card{background:#fff;border-radius:12px;max-width:540px;width:100%;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.toast{position:fixed;bottom:22px;right:22px;background:var(--navy);color:#fff;padding:11px 16px;border-radius:var(--rs);font-size:13px;font-weight:500;z-index:300;transform:translateY(50px);opacity:0;transition:all .22s;max-width:320px}
+.toast.show{transform:translateY(0);opacity:1}
+.empty-state{text-align:center;padding:48px 20px;color:var(--gray-dk)}
+.empty-state i{font-size:32px;opacity:.35;display:block;margin-bottom:10px}
+
+/* Login screen */
+.login-overlay{display:none;position:fixed;inset:0;background:linear-gradient(135deg,#0D1B2E 0%,#1A3A5C 100%);z-index:500;align-items:center;justify-content:center;padding:20px}
+.login-overlay.show{display:flex}
+.login-card{background:#fff;border-radius:14px;max-width:400px;width:100%;padding:36px;box-shadow:0 24px 80px rgba(0,0,0,.4)}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px;justify-content:center}
+.login-title{font-size:20px;font-weight:600;color:var(--navy);text-align:center;margin-bottom:6px}
+.login-sub{font-size:13px;color:var(--gray-dk);text-align:center;margin-bottom:24px}
+.login-error{background:var(--red-lt);border:1px solid #FECACA;border-radius:var(--rs);padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:14px;display:none}
+.login-error.show{display:block}
+.user-pill{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.1);border-radius:20px;padding:5px 12px;margin:8px 10px 0}
+.user-avatar{width:22px;height:22px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0}
+.user-name{font-size:11px;color:rgba(255,255,255,.8);flex:1}
+.user-logout{font-size:10px;color:rgba(255,255,255,.5);cursor:pointer;padding:2px 6px;border-radius:4px;border:none;background:transparent;font-family:inherit}
+.user-logout:hover{color:#fff;background:rgba(255,255,255,.1)}
+
+/* Setup screen */
+.setup-overlay{display:none;position:fixed;inset:0;background:rgba(13,27,46,.92);z-index:1000;align-items:center;justify-content:center;padding:20px}
+.setup-overlay.show{display:flex}
+.setup-card{background:#fff;border-radius:14px;max-width:560px;width:100%;padding:32px;box-shadow:0 24px 80px rgba(0,0,0,.4)}
+.setup-step{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;padding:12px 14px;background:var(--gray);border-radius:var(--rs)}
+.setup-num{width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.setup-text{font-size:13px;line-height:1.55}
+.setup-text a{color:var(--blue);font-weight:500}
+.setup-text code{background:var(--gray-mid);padding:1px 5px;border-radius:3px;font-family:'DM Mono',monospace;font-size:12px}
+
+.bf-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:10px 0}
+.bf-card{border-radius:8px;padding:10px 6px;text-align:center;border:1.5px solid}
+.bf-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px}
+.bf-pct{font-size:18px;font-weight:700}
+.bf-lv{font-size:9px;font-weight:600;margin-top:2px}
+.bf-O{border-color:#8b5cf6;background:#f5f3ff}.bf-O .bf-lbl,.bf-O .bf-pct,.bf-O .bf-lv{color:#7c3aed}
+.bf-C{border-color:#1d5fd4;background:#eff6ff}.bf-C .bf-lbl,.bf-C .bf-pct,.bf-C .bf-lv{color:#1d4ed8}
+.bf-E{border-color:#d97706;background:#fffbeb}.bf-E .bf-lbl,.bf-E .bf-pct,.bf-E .bf-lv{color:#b45309}
+.bf-A{border-color:#059669;background:#ecfdf5}.bf-A .bf-lbl,.bf-A .bf-pct,.bf-A .bf-lv{color:#065f46}
+.bf-N{border-color:#dc2626;background:#fef2f2}.bf-N .bf-lbl,.bf-N .bf-pct,.bf-N .bf-lv{color:#991b1b}
+.bf-report{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px;font-size:12px;line-height:1.7;color:#374151;white-space:pre-wrap;max-height:400px;overflow-y:auto;margin-top:8px}
+.contact-btns{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.contact-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;border:none;cursor:pointer;font-family:inherit;transition:.15s}
+.contact-btn-wa{background:#25D366;color:#fff}.contact-btn-wa:hover{background:#128C7E}
+.contact-btn-email{background:#4285F4;color:#fff}.contact-btn-email:hover{background:#1a73e8}
+.contact-btn-tel{background:#6B7C93;color:#fff}.contact-btn-tel:hover{background:#4a5568}
+.contact-btn-bf{background:#8b5cf6;color:#fff}.contact-btn-bf:hover{background:#7c3aed}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN SCREEN ── -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg width="32" height="32" viewBox="0 0 80 80" fill="none"><circle cx="40" cy="32" r="22" stroke="#4A90D9" stroke-width="8" fill="none"/><circle cx="40" cy="32" r="9" fill="#4A90D9"/><rect x="31" y="46" width="18" height="12" rx="4" fill="#4A90D9"/></svg>
+      <span style="font-size:20px;font-weight:600;color:var(--navy)">Claves Health</span>
+    </div>
+    <div class="login-title">Bem-vinda ao ATS 3.0</div>
+    <div class="login-sub">Faça login com seu e-mail institucional</div>
+    <div class="login-error" id="loginError"></div>
+    <div class="fg" style="margin-bottom:12px">
+      <div class="fl">E-mail</div>
+      <input class="fi" id="loginEmail" type="email" placeholder="seu@claves.com.br" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="fg" style="margin-bottom:20px">
+      <div class="fl">Senha</div>
+      <div style="position:relative">
+        <input class="fi" id="loginPassword" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+        <button onclick="togglePwd()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--gray-dk);font-size:16px">👁</button>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:12px;font-size:14px" id="loginBtn" onclick="doLogin()"><i class="ti ti-login"></i>Entrar</button>
+    <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--gray-dk)">Acesso restrito à equipe Claves Health</div>
+  </div>
+</div>
+
+<!-- ── SETUP OVERLAY (aparece se Firebase não configurado) ── -->
+<div class="setup-overlay" id="setupOverlay">
+  <div class="setup-card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <svg width="28" height="28" viewBox="0 0 80 80" fill="none"><circle cx="40" cy="32" r="22" stroke="#4A90D9" stroke-width="8" fill="none"/><circle cx="40" cy="32" r="9" fill="#4A90D9"/><rect x="31" y="46" width="18" height="12" rx="4" fill="#4A90D9"/></svg>
+      <span style="font-size:17px;font-weight:600;color:var(--navy)">Claves Health — ATS 3.0</span>
+    </div>
+    <p style="font-size:13px;color:var(--gray-dk);margin-bottom:20px;line-height:1.6">Configure o banco de dados gratuito (Firebase) para ativar o modo multi-usuário em tempo real. Leva menos de 3 minutos.</p>
+
+    <div class="setup-step"><div class="setup-num">1</div><div class="setup-text">Acesse <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a> com sua conta Google e clique em <strong>Criar projeto</strong>. Dê o nome <code>claves-ats</code> e desative o Google Analytics.</div></div>
+    <div class="setup-step"><div class="setup-num">2</div><div class="setup-text">Dentro do projeto, clique em <strong>Firestore Database</strong> → <strong>Criar banco de dados</strong> → escolha <strong>Modo de teste</strong> → selecione região <strong>us-east1</strong>.</div></div>
+    <div class="setup-step"><div class="setup-num">3</div><div class="setup-text">Clique no ícone <strong>&lt;/&gt;</strong> (Web) para registrar o app. Copie o objeto <code>firebaseConfig</code> que aparecer.</div></div>
+    <div class="setup-step"><div class="setup-num">4</div><div class="setup-text">Abra este arquivo HTML em um editor de texto (Bloco de Notas ou VS Code), localize o comentário <code>▼▼▼ COLE AQUI</code> e substitua os valores de <code>firebaseConfig</code> pelos seus. Salve o arquivo.</div></div>
+    <div class="setup-step"><div class="setup-num">5</div><div class="setup-text">Acesse <a href="https://app.netlify.com/drop" target="_blank">app.netlify.com/drop</a>, arraste e solte este arquivo HTML. Pronto — sua equipe acessa pelo link gerado!</div></div>
+
+    <div style="background:var(--blue-pal);border:1px solid var(--blue-lit);border-radius:var(--rs);padding:12px 14px;font-size:12px;color:var(--blue);margin-top:4px">
+      <strong>Enquanto isso:</strong> o ATS já funciona normalmente nesta aba com armazenamento local. Os dados serão migrados automaticamente ao configurar o Firebase.
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:16px;padding:11px" onclick="closeSetup()">Entendi — usar modo local por enquanto</button>
+  </div>
+</div>
+
+<!-- ── APPLY PAGE ── -->
+<div class="apply-wrap" id="applyPage">
+  <div class="apply-card" id="applyCard"></div>
+</div>
+
+<!-- ── MAIN ATS ── -->
+<div class="shell" id="atsShell">
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-row">
+      <svg viewBox="0 0 80 80" fill="none"><circle cx="40" cy="32" r="22" stroke="#4A90D9" stroke-width="8" fill="none"/><circle cx="40" cy="32" r="9" fill="#4A90D9"/><rect x="31" y="46" width="18" height="12" rx="4" fill="#4A90D9"/></svg>
+      <span class="logo-name">Claves</span>
+      <span class="logo-ver">ATS 3.0</span>
+    </div>
+  </div>
+  <div class="sync-pill">
+    <div class="sync-dot" id="syncDot"></div>
+    <span id="syncLabel">Conectando...</span>
+  </div>
+  <div class="user-pill" id="userPill" style="display:none">
+    <div class="user-avatar" id="userAvatar">?</div>
+    <span class="user-name" id="userName">—</span>
+    <button class="user-logout" onclick="doLogout()">Sair</button>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Principal</div>
+    <button class="nav-item active" id="nav-dash" onclick="go('dash')"><i class="ti ti-layout-dashboard"></i>Dashboard</button>
+    <button class="nav-item" id="nav-cand" onclick="go('cand')"><i class="ti ti-users"></i>Candidatos<span class="nav-count" id="nc-cand">0</span></button>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Processos</div>
+    <button class="nav-item" id="nav-proc" onclick="go('proc')"><i class="ti ti-briefcase"></i>Processos<span class="nav-count" id="nc-proc">0</span></button>
+    <button class="nav-item" id="nav-client" onclick="go('client')"><i class="ti ti-building-hospital"></i>Clientes<span class="nav-count" id="nc-client">0</span></button>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Vagas</div>
+    <button class="nav-item" id="nav-jobs" onclick="go('jobs')"><i class="ti ti-file-description"></i>Descritivos<span class="nav-count" id="nc-jobs">0</span></button>
+    <button class="nav-item" id="nav-apply" onclick="go('apply')"><i class="ti ti-link"></i>Links / Candidatura</button>
+  </div>
+</nav>
+<div class="content">
+  <div class="topbar">
+    <span class="page-title" id="pgTitle">Dashboard</span>
+    <span class="page-sub" id="pgSub"></span>
+    <div class="topbar-actions" id="pgActions"></div>
+  </div>
+  <div class="main" id="pageContent"></div>
+</div>
+</div>
+
+<!-- Modals -->
+<div class="modal-bg" id="mdCandidate"><div class="modal" onclick="event.stopPropagation()">
+  <div class="modal-hd"><span class="modal-title" id="mdCandTitle">Novo candidato</span><button class="modal-x" onclick="closeModal('mdCandidate')">✕</button></div>
+  <div class="modal-body" id="mdCandBody"></div>
+  <div class="modal-ft"><button class="btn btn-outline btn-sm" onclick="closeModal('mdCandidate')">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveCandidate()">Salvar</button></div>
+</div></div>
+<div class="modal-bg" id="mdClient"><div class="modal" onclick="event.stopPropagation()">
+  <div class="modal-hd"><span class="modal-title" id="mdClientTitle">Nova empresa</span><button class="modal-x" onclick="closeModal('mdClient')">✕</button></div>
+  <div class="modal-body" id="mdClientBody"></div>
+  <div class="modal-ft"><button class="btn btn-outline btn-sm" onclick="closeModal('mdClient')">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveClient()">Salvar</button></div>
+</div></div>
+<div class="modal-bg" id="mdGcal"><div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
+  <div class="modal-hd"><span class="modal-title" id="mdGcalTitle">Agendar entrevista</span><button class="modal-x" onclick="closeModal('mdGcal')">✕</button></div>
+  <div class="modal-body single" style="gap:0">
+    <input type="hidden" id="gcal-candId">
+    <div style="background:var(--navy);border-radius:var(--rs);padding:14px 16px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px" id="gcal-cand-nome">—</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:rgba(255,255,255,.6)">
+        <div>Especialidade: <span style="color:#fff" id="gcal-cand-esp">—</span></div>
+        <div>Processo: <span style="color:#fff" id="gcal-cand-proc">—</span></div>
+        <div>Cliente: <span style="color:#fff" id="gcal-cand-cliente">—</span></div>
+        <div>Telefone: <span style="color:#fff" id="gcal-cand-tel">—</span></div>
+        <div style="grid-column:1/-1">E-mail: <span style="color:#fff" id="gcal-cand-email">—</span></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="fg"><div class="fl">Data *</div><input class="fi" type="date" id="gcal-data"></div>
+      <div class="fg"><div class="fl">Horário *</div><input class="fi" type="time" id="gcal-hora"></div>
+      <div class="fg"><div class="fl">Duração (min)</div><select class="fi" id="gcal-duracao"><option value="30">30 min</option><option value="45">45 min</option><option value="60" selected>1 hora</option><option value="90">1h30</option><option value="120">2 horas</option></select></div>
+    </div>
+    <div class="fg" style="margin-bottom:10px"><div class="fl">Local / Link</div><input class="fi" id="gcal-local" placeholder="Google Meet, Zoom, endereço..."></div>
+    <div class="fg" style="margin-bottom:4px"><div class="fl">Observações para o evento</div><textarea class="fi" id="gcal-obs" style="min-height:60px" placeholder="Roteiro da entrevista, pontos a avaliar..."></textarea></div>
+    <div style="background:var(--blue-pal);border-radius:var(--rs);padding:10px 12px;font-size:12px;color:var(--blue);margin-top:10px">
+      <i class="ti ti-info-circle"></i> O evento será criado no seu Google Calendar. O candidato não é notificado automaticamente — envie o convite pelo próprio Calendar após criar.
+    </div>
+  </div>
+  <div class="modal-ft">
+    <button class="btn btn-outline btn-sm" onclick="closeModal('mdGcal')">Cancelar</button>
+    <button class="btn btn-primary btn-sm" onclick="gerarLinkGcal()"><i class="ti ti-calendar-event"></i>Abrir no Google Calendar</button>
+  </div>
+</div></div>
+
+<div class="modal-bg" id="mdProcess"><div class="modal" onclick="event.stopPropagation()">
+  <div class="modal-hd"><span class="modal-title" id="mdProcTitle">Novo processo</span><button class="modal-x" onclick="closeModal('mdProcess')">✕</button></div>
+  <div class="modal-body" id="mdProcBody"></div>
+  <div class="modal-ft"><button class="btn btn-outline btn-sm" onclick="closeModal('mdProcess')">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveProcess()">Salvar</button></div>
+</div></div>
+<div class="modal-bg" id="mdJob"><div class="modal" onclick="event.stopPropagation()">
+  <div class="modal-hd"><span class="modal-title" id="mdJobTitle">Descritivo de vaga</span><button class="modal-x" onclick="closeModal('mdJob')">✕</button></div>
+  <div class="modal-body single" id="mdJobBody"></div>
+  <div class="modal-ft"><button class="btn btn-outline btn-sm" onclick="closeModal('mdJob')">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveJob()">Salvar</button></div>
+</div></div>
+<div class="modal-bg" id="mdApply"><div class="modal" onclick="event.stopPropagation()" style="max-width:540px">
+  <div class="modal-hd"><span class="modal-title">Prévia — página de candidatura</span><button class="modal-x" onclick="closeModal('mdApply')">✕</button></div>
+  <div class="modal-body single" id="mdApplyBody"></div>
+  <div class="modal-ft"><button class="btn btn-outline btn-sm" onclick="closeModal('mdApply')">Fechar</button></div>
+</div></div>
+<div class="panel-bg" id="panelBg" onclick="closePanel()"></div>
+<div class="panel" id="sidePanel" style="display:none"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ── Cloudinary Config ────────────────────────────────────────────
+const CLOUDINARY_CLOUD = 'daqyo66hb';
+const CLOUDINARY_PRESET = 'claves_curriculos';
+const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/raw/upload`;
+
+async function uploadPDFToCloudinary(file, candidatoNome){
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', CLOUDINARY_PRESET);
+  formData.append('folder', 'curriculos');
+  // resource_type raw is set in the URL, not in formData
+  try {
+    const resp = await fetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: formData });
+    if(!resp.ok){
+      const err = await resp.text();
+      console.error('Cloudinary HTTP error:', resp.status, err);
+      return null;
+    }
+    const data = await resp.json();
+    if(data.secure_url){
+      console.log('Upload OK:', data.secure_url);
+      return { url: data.secure_url, publicId: data.public_id };
+    }
+    console.error('Cloudinary error response:', data);
+    return null;
+  } catch(e) {
+    console.error('Upload fetch error:', e);
+    return null;
+  }
+}
+const STAGES=['Triagem','Entrevista','Proposta','Contratado','Reprovado'];
+const SK={Triagem:'triagem',Entrevista:'entrevista',Proposta:'proposta',Contratado:'contratado',Reprovado:'reprovado'};
+const SBK={triagem:'b-triagem',entrevista:'b-entrevista',proposta:'b-proposta',contratado:'b-contratado',reprovado:'b-reprovado'};
+
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function toast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur)}
+
+// ── Sync status ──────────────────────────────────────────────────
+window._setSyncStatus = function(status){
+  const dot=document.getElementById('syncDot');
+  const lbl=document.getElementById('syncLabel');
+  if(!dot)return;
+  dot.className='sync-dot';
+  if(status==='live'){dot.classList.add('live');lbl.textContent='Tempo real · Firebase';}
+  else if(status==='saving'){dot.classList.add('saving');lbl.textContent='Salvando...';}
+  else if(status==='local'){lbl.textContent='Modo local';}
+  else{dot.classList.add('error');lbl.textContent='Erro de conexão';}
+};
+
+// ── DB ───────────────────────────────────────────────────────────
+let DB={clients:[],processes:[],candidates:[],jobs:[]};
+let useFirebase=false;
+let lastRemoteTs=0;
+let saving=false;
+
+function seedDB(){
+  const _data = {"clients": [{"id": "mp79vxfdec1pv3gnvj9", "nome": "Studio Cesar Borges", "segmento": "Estética/Saúde", "cidade": "Brasília", "contato": "61 9252 9646", "telefone": "", "email": "cesarborgesscb@gmail.com", "obs": "CNPJ: 32.857.090/0001-28"}, {"id": "mp7ak6k2t5435ap24cs", "nome": "LIVANCE", "segmento": "Saúde", "cidade": "São Paulo", "contato": "11 97027 2160", "telefone": "", "email": "marilia.bortolotto@livance.com", "obs": "CNPJ: 26.917.632/0001-08"}, {"id": "mp7bac2qqs9tl8tp0js", "nome": "QUALITESTE", "segmento": "Saúde", "cidade": "Bahia", "contato": "75 9134 3088", "telefone": "", "email": "crf7413@gmail.com", "obs": "CNPJ: 21.572.018/0001-38"}, {"id": "mp7cl0kx7hg62xx2g1v", "nome": "Clínica Marcella Brasil", "segmento": "Saúde", "cidade": "Goiânia", "contato": "62 9211 0840", "telefone": "", "email": "marcellafabyanabrasil@hotmail.com", "obs": "CNPJ: 16.844.470/0002-52"}, {"id": "mp7cysnv3fsrxllzrf2", "nome": "MODULADOR", "segmento": "Saúde", "cidade": "Brasília", "contato": "61 9245 1460", "telefone": "", "email": "administracao@clinicamodulador.com.br", "obs": "CNPJ: 49.847.325/0001-01"}, {"id": "mp7dct78ayptf9i9r", "nome": "Hemocentro São Lucas", "segmento": "Saúde", "cidade": "São Paulo", "contato": "11 96401 3189", "telefone": "11 91157 0595", "email": "andre.maria@hemocentrosaolucas.com.br", "obs": "CNPJ: 00.092.633/0001-77"}, {"id": "mp7dweejh4kujkoo384", "nome": "ATOS", "segmento": "Saúde", "cidade": "Brasília", "contato": "61 9538 1872", "telefone": "", "email": "wercijr@hotmail.com", "obs": "CNPJ: 32.239.574/0001-03"}, {"id": "mp7e7j2jazs5x64n8a7", "nome": "IMOI", "segmento": "Saúde", "cidade": "Brasília", "contato": "61 8137 5504", "telefone": "", "email": "gmelao12@gmail.com", "obs": "CNPJ: 42.469.570/0001-75"}, {"id": "mp7em59jwpw6d5vmdso", "nome": "Clínica do Sono", "segmento": "Saúde", "cidade": "Rio de Janeiro", "contato": "21 99613 3834", "telefone": "", "email": "jlcarvalho2@gmail.com", "obs": "CNPJ: 09.657.205/0001-19"}], "processes": [{"id": "mp7a1hfvals573rnny", "titulo": "MASSOTERAPEUTA", "cliente": "mp79vxfdec1pv3gnvj9", "job": "mp7a0b3ddj1yunscest", "recrutador": "DÉBORA", "inicio": "2026-05-13", "prazo": "2026-05-18", "status": "aberta", "obs": "VAGA URGENTE! 7 POSIÇÕES."}, {"id": "mp7ax1r2egl5n0fgjif", "titulo": "MÉDICO ENDOCRINOLOGISTA", "cliente": "mp7ak6k2t5435ap24cs", "job": "mp7askn6ma17fmeq8sn", "recrutador": "DÉBORA", "inicio": "2026-03-23", "prazo": "", "status": "aberta", "obs": ""}, {"id": "mp7axs0bb0v0zj8s77f", "titulo": "MÉDICO PSIQUIATRA", "cliente": "mp7ak6k2t5435ap24cs", "job": "mp7askn6ma17fmeq8sn", "recrutador": "DÉBORA", "inicio": "2026-03-23", "prazo": "", "status": "aberta", "obs": ""}, {"id": "mp7ayd2mhzd2mi8mjd", "titulo": "MÉDICO DERMATOLOGISTA", "cliente": "mp7ak6k2t5435ap24cs", "job": "mp7askn6ma17fmeq8sn", "recrutador": "DÉBORA", "inicio": "2026-03-23", "prazo": "", "status": "aberta", "obs": ""}, {"id": "mp7br3hyr4gfzj05ot8", "titulo": "MÉDICO CARDIOLOGISTA", "cliente": "mp7bac2qqs9tl8tp0js", "job": "mp7bpswp4va9jhcbrse", "recrutador": "DÉBORA", "inicio": "", "prazo": "", "status": "aberta", "obs": ""}, {"id": "mp7brqmqd3jntlpaari", "titulo": "MÉDICO ANGIOLOGISTA", "cliente": "mp7bac2qqs9tl8tp0js", "job": "mp7bpswp4va9jhcbrse", "recrutador": "DÉBORA", "inicio": "", "prazo": "", "status": "aberta", "obs": ""}, {"id": "mp7bs4k86gavvl97gnd", "titulo": "MÉDICO PEDIATRA", "cliente": "mp7bac2qqs9tl8tp0js", "job": "mp7bpswp4va9jhcbrse", "recrutador": "DÉBORA", "inicio": "", "prazo": "", "status": "aberta", "obs": ""}, {"id": "mp7bt5aicc4khzq6n8d", "titulo": "MÉDICO GINECOLOGISTA", "cliente": "mp7bac2qqs9tl8tp0js", "job": "mp7bpswp4va9jhcbrse", "recrutador": "DÉBORA", "inicio": "", "prazo": "", "status": "aberta", "obs": ""}, {"id": "mp7bxvxdd4g1k64x425", "titulo": "RECEPCIONISTA / SECRETÁRIA", "cliente": "mp79vxfdec1pv3gnvj9", "job": "mp7bvqutgwsum56r88k", "recrutador": "DÉBORA", "inicio": "2026-05-13", "prazo": "2026-05-22", "status": "aberta", "obs": ""}, {"id": "mp7byiiq7xz0xzatq8s", "titulo": "REPRESENTANTE DE VENDAS", "cliente": "mp79vxfdec1pv3gnvj9", "job": "mp7bwt6epzut8y39f5b", "recrutador": "DÉBORA", "inicio": "2026-05-13", "prazo": "2026-05-22", "status": "aberta", "obs": ""}, {"id": "mp7cs0lqogwg94zrk3a", "titulo": "RECEPCIONISTA", "cliente": "mp7cl0kx7hg62xx2g1v", "job": "mp7cmytolfjt28a9xzi", "recrutador": "JULIANA", "inicio": "2026-04-28", "prazo": "", "status": "aberta", "obs": ""}, {"id": "mp7css3cgtxv9sc0a", "titulo": "SDR PRÉ VENDAS", "cliente": "mp7cl0kx7hg62xx2g1v", "job": "mp7coeaoq37r589bva", "recrutador": "JULIANA", "inicio": "2026-04-28", "prazo": "", "status": "aberta", "obs": ""}, {"id": "mp7ctuo776fwnhhuft", "titulo": "GESTOR DE CLÍNICA / HEAD COMERCIAL", "cliente": "mp7cl0kx7hg62xx2g1v", "job": "mp7cpr9gggiliqc2jbi", "recrutador": "JULIANA", "inicio": "2026-04-28", "prazo": "", "status": "aberta", "obs": ""}, {"id": "mp7d64drw2265n3pi5s", "titulo": "GERENTE GERAL", "cliente": "mp7cysnv3fsrxllzrf2", "job": "mp7d1sv1s466lbo2t8o", "recrutador": "JULIANA", "inicio": "2026-03-31", "prazo": "", "status": "aberta", "obs": ""}, {"id": "mp7dn0qwgz7zbxno1nq", "titulo": "TÉCNICO DE HEMOTERAPIA", "cliente": "mp7dct78ayptf9i9r", "job": "mp7dlyzf79s2dd1rwo6", "recrutador": "JULIANA", "inicio": "", "prazo": "", "status": "aberta", "obs": "4 VAGAS"}, {"id": "mp7drnmmilmuhscrpjk", "titulo": "BIOMÉDICO", "cliente": "mp7dct78ayptf9i9r", "job": "mp7dp41hniyujnjfk19", "recrutador": "JULIANA", "inicio": "2026-05-07", "prazo": "2026-05-22", "status": "aberta", "obs": "VAGA URGENTE!!!"}, {"id": "mp7e3rp8iqcwaghwwba", "titulo": "REUMATOLOGISTA OU ENDOCRINOLOGISTA", "cliente": "mp7dweejh4kujkoo384", "job": "mp7e2jz76uu1yimbt2q", "recrutador": "JULIANA", "inicio": "", "prazo": "", "status": "aberta", "obs": ""}, {"id": "mp7ehvbowqwif6t234k", "titulo": "AUXILIAR DE SERVIÇOS GERAIS", "cliente": "mp7e7j2jazs5x64n8a7", "job": "mp7eftus1azyy7ketvgh", "recrutador": "JULIANA", "inicio": "2026-05-12", "prazo": "2026-05-22", "status": "aberta", "obs": ""}, {"id": "mp7er8c8vcpf05dzmx", "titulo": "MÉDICO NUTRÓLOGO", "cliente": "mp7em59jwpw6d5vmdso", "job": "mp7eq5pji9atajx0vkq", "recrutador": "JULIANA", "inicio": "", "prazo": "", "status": "aberta", "obs": "DE ACORDO COM PRETENSÃO DO ESPECIALISTA."}, {"id": "mp7eu1mslb57ymxvz1", "titulo": "MÉDICO PNEUMOLOGISTA", "cliente": "mp7em59jwpw6d5vmdso", "job": "mp7eslc4f5ix77mx62g", "recrutador": "JULIANA", "inicio": "", "prazo": "", "status": "aberta", "obs": "REGIÃO DE BANGU - MÉDIA DE 7000/MÊS"}, {"id": "mp7f0dj1fpjomoyohfe", "titulo": "MÉDICO ECOGRAFISTA", "cliente": "mp7em59jwpw6d5vmdso", "job": "mp7ezroc8lno1r3paaf", "recrutador": "JULIANA", "inicio": "", "prazo": "", "status": "aberta", "obs": "VAGA EM COPACABANA"}], "candidates": [{"id": "mp5pxxqw7po2sokldtk", "nome": "Denise Linhares Pereira Gottsch", "cpf": "", "tipo": "Médico", "especialidade": "Endocrinologia", "cfm": "20530/DF", "rqe": "RQE: 17126", "regiao": "Brasília - DF", "telefone": "", "email": "", "recrutador": "Debora", "processo": "mp7ax1r2egl5n0fgjif", "etapa": "Entrevista", "pontuacao": 5, "curriculo": "", "curriculoTexto": "", "aderencia": null, "obs": ""}, {"id": "mp5pxxqwhbz38u42vm8", "nome": "Roberto Young Junior", "cpf": "", "tipo": "Médico", "especialidade": "Angiorradiologia e Cirurgia Endovascular", "cfm": "52.47872-5/RJ", "rqe": "RQE: 33404", "regiao": "Brasília - DF", "telefone": "", "email": "", "recrutador": "Debora", "processo": "mp7brqmqd3jntlpaari", "etapa": "Proposta", "pontuacao": 5, "curriculo": "", "curriculoTexto": "", "aderencia": null, "obs": ""}, {"id": "mp5pxxqwmjtdzmaj399", "nome": "Esther Cytrynbaum Young", "cpf": "", "tipo": "Médico", "especialidade": "Endocrinologia", "cfm": "52.61359-5/RJ", "rqe": "RQE: 58718", "regiao": "Brasília - DF", "telefone": "", "email": "", "recrutador": "Debora", "processo": "mp7ax1r2egl5n0fgjif", "etapa": "Triagem", "pontuacao": 5, "curriculo": "", "curriculoTexto": "", "aderencia": null, "obs": ""}, {"id": "mp5pxxqwwkq65mlp7cg", "nome": "Cybele Lumara", "cpf": "", "tipo": "Médico", "especialidade": "Medicina da Família e Comunidade", "cfm": "31879/DF", "rqe": "", "regiao": "Brasília - DF", "telefone": "(61) 99832-9906", "email": "", "recrutador": "Juliana", "processo": "", "etapa": "Triagem", "pontuacao": 0, "curriculo": "", "curriculoTexto": "", "aderencia": null, "obs": "Aguardando RQE"}, {"id": "mp5pxxqwqt4rutkh25", "nome": "Lucas Barreto Paes Oliveira", "cpf": "", "tipo": "Médico", "especialidade": "Ortopedia", "cfm": "", "rqe": "", "regiao": "Brasília - DF", "telefone": "(21) 99308-9491", "email": "lucasbarreto10@gmail.com", "recrutador": "Aline", "processo": "", "etapa": "Triagem", "pontuacao": 0, "curriculo": "", "curriculoTexto": "", "aderencia": null, "obs": ""}, {"id": "mp5pxxqwpea194hip9n", "nome": "Antenor Almeida", "cpf": "", "tipo": "Médico", "especialidade": "Ortopedia", "cfm": "", "rqe": "", "regiao": "Brasília - DF", "telefone": "(61) 99669-5855", "email": "antenorgomesalmeida@gmail.com", "recrutador": "Aline", "processo": "", "etapa": "Triagem", "pontuacao": 0, "curriculo": "", "curriculoTexto": "", "aderencia": null, "obs": ""}, {"id": "mp5pxxqw9f81ig9zmoe", "nome": "Welton Souza Ferreira", "cpf": "", "tipo": "Médico", "especialidade": "Ortopedia", "cfm": "", "rqe": "", "regiao": "Brasília - DF", "telefone": "(61) 99113-9485", "email": "drweltonferreira@gmail.com", "recrutador": "Aline", "processo": "", "etapa": "Entrevista", "pontuacao": 3, "curriculo": "", "curriculoTexto": "", "aderencia": null, "obs": ""}, {"id": "mp5pxxqw6zeq62y6xuj", "nome": "Bruno Matos", "cpf": "", "tipo": "Administrativo", "especialidade": "Administrador", "cfm": "", "rqe": "", "regiao": "Brasília - DF", "telefone": "(61) 98100-8515", "email": "administrativo@claves.com.br", "recrutador": "Aline", "processo": "", "etapa": "Contratado", "pontuacao": 5, "curriculo": "", "curriculoTexto": "", "aderencia": null, "obs": ""}, {"id": "mp5pxxqwf0xkkx4nhni", "nome": "Aline Sousa", "cpf": "", "tipo": "Administrativo", "especialidade": "Coordenadora", "cfm": "", "rqe": "", "regiao": "Brasília - DF", "telefone": "(61) 99470-9780", "email": "aline@claves.com.br", "recrutador": "Bruno Matos", "processo": "", "etapa": "Proposta", "pontuacao": 5, "curriculo": "", "curriculoTexto": "", "aderencia": null, "obs": ""}], "jobs": [{"id": "mp7a0b3ddj1yunscest", "titulo": "MASSOTERAPEUTA", "cliente": "mp79vxfdec1pv3gnvj9", "tipo": "Especialista", "status": "aberta", "descricao": "Vínculo: PJ\nRemuneração: R$2000 a R$2500 inicial + Progressão de ganhos\nLocal: Asa Norte (Brasília Shopping)\nHorário: Conforme agenda (Segunda a Sábado)\n\nRequisitos:\nCurso técnico em massoterapia completo — certificação exigida\nDisponibilidade para trabalho presencial\nPerfil acolhedor, comunicativo e orientado à experiência do cliente\nPreferência por perfil masculino"}, {"id": "mp7askn6ma17fmeq8sn", "titulo": "MÉDICOS - Endocrinologista, Psiquiatra, Dermatologista", "cliente": "mp7ak6k2t5435ap24cs", "tipo": "Médica", "status": "aberta", "descricao": "Médicos com RQE ativo na especialidade.\n3 anos de experiência como especialista.\nPerfil clínico.\nConsultas de aproximadamente 20 minutos.\n\nEstimativa: R$ 4.000/mês para 4 horas semanais."}, {"id": "mp7bpswp4va9jhcbrse", "titulo": "MÉDICOS - Cardiologista, Pediatra, Angiologista, Ginecologista", "cliente": "mp7bac2qqs9tl8tp0js", "tipo": "Médica", "status": "aberta", "descricao": "Clínica em Amargosa/BA.\nAgenda mínima garantida.\nFlexibilidade total de horários.\n\nCardiologista: R$ 190,00/consulta + R$ 200,00/ecocardiograma\nPediatra: R$ 230,00/consulta\nAngiologista: R$ 200,00/consulta\nModelo: PJ"}, {"id": "mp7bvqutgwsum56r88k", "titulo": "RECEPCIONISTA / SECRETÁRIA", "cliente": "mp79vxfdec1pv3gnvj9", "tipo": "Operacional", "status": "aberta", "descricao": "Vínculo: CLT\nRemuneração: R$2.200 + VA + VT\nLocal: Asa Norte (Brasília Shopping)\nHorário: 8h às 17h (Seg-Sex) e 8h às 12h (Sáb)"}, {"id": "mp7bwt6epzut8y39f5b", "titulo": "REPRESENTANTE DE VENDAS", "cliente": "mp79vxfdec1pv3gnvj9", "tipo": "Operacional", "status": "aberta", "descricao": "Atendimento de leads via WhatsApp — 70 a 80 leads diários.\nTempo de resposta ideal: até 4 minutos.\n\nVínculo: CLT\nRemuneração: R$2.200 + VA + VT\nLocal: Asa Norte (Brasília Shopping)"}, {"id": "mp7cmytolfjt28a9xzi", "titulo": "RECEPCIONISTA", "cliente": "mp7cl0kx7hg62xx2g1v", "tipo": "Operacional", "status": "aberta", "descricao": "Salário: R$ 2.095 CLT + premiação sobre faturamento\nJornada: Segunda a sexta-feira, 8h às 18h\nPreferência por perfil feminino"}, {"id": "mp7coeaoq37r589bva", "titulo": "SDR PRÉ-VENDAS", "cliente": "mp7cl0kx7hg62xx2g1v", "tipo": "Operacional", "status": "aberta", "descricao": "R$ 3.900 fixo + Premiação sobre faturamento\nCLT ou PJ (flexível)\nModelo híbrido possível\nExperiência mínima de 1 a 2 anos com vendas internas / SDR"}, {"id": "mp7cpr9gggiliqc2jbi", "titulo": "GESTOR DE CLÍNICA / HEAD COMERCIAL", "cliente": "mp7cl0kx7hg62xx2g1v", "tipo": "Estratégica", "status": "aberta", "descricao": "R$ 9.900 fixo + variável\nModelo PJ\nPotencial de 3 a 4x o salário fixo em bônus"}, {"id": "mp7d1sv1s466lbo2t8o", "titulo": "GERENTE GERAL", "cliente": "mp7cysnv3fsrxllzrf2", "tipo": "Estratégica", "status": "aberta", "descricao": "Gestão de 3 unidades (Águas Claras, Asa Norte e Sudoeste) - 15 colaboradores\nR$ 5.000 a R$ 8.000 CLT\nPlano de saúde, odontológico, VA, VT"}, {"id": "mp7dlyzf79s2dd1rwo6", "titulo": "TÉCNICO DE HEMOTERAPIA", "cliente": "mp7dct78ayptf9i9r", "tipo": "Especialista", "status": "aberta", "descricao": "Atuação em Agência Transfusional.\nContratação CLT\nInsalubridade 20%\nPlano Odontológico, Seguro de Vida, Plano de Saúde (50% custeado)"}, {"id": "mp7dp41hniyujnjfk19", "titulo": "BIOMÉDICO", "cliente": "mp7dct78ayptf9i9r", "tipo": "Especialista", "status": "aberta", "descricao": "Escala 12x36 — 06h às 18h / 18h às 06h\nSalário: R$ 3.262,00\nVA R$330,64/mês, VR R$16,00/dia"}, {"id": "mp7e2jz76uu1yimbt2q", "titulo": "MÉDICO GASTROENTEROLOGISTA OU REUMATOLOGISTA", "cliente": "mp7dweejh4kujkoo384", "tipo": "Médica", "status": "aberta", "descricao": "Possuir RQE.\n70% para o médico e 30% para a clínica sobre consultas.\nFoco em DII (Doença de Crohn e Retocolite Ulcerativa)"}, {"id": "mp7eftus1azyy7ketvgh", "titulo": "AUXILIAR SERVIÇOS GERAIS", "cliente": "mp7e7j2jazs5x64n8a7", "tipo": "Operacional", "status": "aberta", "descricao": "Limpeza, conservação e organização dos ambientes.\nSalário: R$ 1.621,00"}, {"id": "mp7eq5pji9atajx0vkq", "titulo": "MÉDICO NUTRÓLOGO", "cliente": "mp7em59jwpw6d5vmdso", "tipo": "Médica", "status": "aberta", "descricao": "Região de Bangu.\nDe acordo com proposta do especialista."}, {"id": "mp7eslc4f5ix77mx62g", "titulo": "MÉDICO PNEUMOLOGISTA", "cliente": "mp7em59jwpw6d5vmdso", "tipo": "Médica", "status": "aberta", "descricao": "Vaga em Bangu.\nMédia de R$ 7.000/mês."}, {"id": "mp7ezroc8lno1r3paaf", "titulo": "MÉDICO ECOGRAFISTA", "cliente": "mp7em59jwpw6d5vmdso", "tipo": "Médica", "status": "aberta", "descricao": "Doppler Vascular\nEco de Carótidas\nVaga em Copacabana\nGanho por exame"}]};
+  DB.clients = _data.clients;
+  DB.processes = _data.processes;
+  DB.candidates = _data.candidates;
+  DB.jobs = _data.jobs;
+}
+
+function loadLocal(){try{const s=localStorage.getItem('claves_ats3');if(s)DB=JSON.parse(s);}catch(e){}}
+function saveLocal(){try{localStorage.setItem('claves_ats3',JSON.stringify(DB));}catch(e){}}
+
+async function saveDB(){
+  saving=true;
+  _setSyncStatus('saving');
+  if(useFirebase){
+    await window._fbSave(DB);
+  } else {
+    saveLocal();
+    _setSyncStatus('local');
+  }
+  saving=false;
+  updateNavCounts();
+}
+
+// Listener do Firebase — atualiza em tempo real quando outro usuário muda algo
+window._onRemoteChange = function(incoming, ts){
+  if(saving) return; // ignora echo das próprias alterações
+  if(ts <= lastRemoteTs) return;
+  lastRemoteTs = ts;
+  DB = incoming;
+  updateNavCounts();
+  renderPage(currentPage);
+  toast('⟳ Atualizado por outro usuário');
+};
+
+function showLogin(){
+  const overlay=document.getElementById('loginOverlay');
+  if(overlay){overlay.classList.add('show');}
+  const shell=document.getElementById('atsShell');
+  if(shell){shell.style.display='none';}
+  const ap=document.getElementById('applyPage');
+  if(ap){ap.classList.remove('show');}
+  // Clear any stale login error/button state
+  const err=document.getElementById('loginError');if(err)err.classList.remove('show');
+  const btn=document.getElementById('loginBtn');if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-login"></i>Entrar';}
+}
+function hideLogin(){ document.getElementById('loginOverlay').classList.remove('show'); document.getElementById('atsShell').style.display='flex'; }
+
+function togglePwd(){ const p=document.getElementById('loginPassword'); p.type=p.type==='password'?'text':'password'; }
+
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pwd=document.getElementById('loginPassword').value;
+  const err=document.getElementById('loginError');
+  const btn=document.getElementById('loginBtn');
+  if(!email||!pwd){err.textContent='Preencha e-mail e senha.';err.classList.add('show');return;}
+  btn.disabled=true;btn.innerHTML='<i class="ti ti-loader"></i> Entrando...';
+  err.classList.remove('show');
+  const result=await window._fbLogin(email,pwd);
+  if(result.error){err.textContent=result.error;err.classList.add('show');btn.disabled=false;btn.innerHTML='<i class="ti ti-login"></i>Entrar';}
+}
+
+async function doLogout(){
+  if(!confirm('Deseja sair do ATS?'))return;
+  await window._fbLogout();
+}
+
+function setUserPill(user){
+  const pill=document.getElementById('userPill');
+  const avatar=document.getElementById('userAvatar');
+  const name=document.getElementById('userName');
+  if(user){
+    const n=user.email.split('@')[0];
+    avatar.textContent=n[0].toUpperCase();
+    name.textContent=n.charAt(0).toUpperCase()+n.slice(1);
+    pill.style.display='flex';
+  } else {
+    pill.style.display='none';
+  }
+}
+
+window._onAuthReady = async function(user){
+  // If this is a candidacy link, don't interfere — apply page handles itself
+  if(location.hash.startsWith('#apply-')) return;
+  setUserPill(user);
+  await initDB();
+  hideLogin();
+  updateNavCounts();
+  renderPage('dash');
+  if(!window._firebaseReady){ setTimeout(()=>document.getElementById('setupOverlay').classList.add('show'),800); }
+};
+
+window._onAuthLogout = function(){
+  setUserPill(null);
+  showLogin();
+};
+
+async function initDB(){
+  if(window._firebaseReady){
+    const remote = await window._fbLoad();
+    if(remote){
+      DB = remote;
+      useFirebase = true;
+      _setSyncStatus('live');
+    } else {
+      loadLocal();
+      if(!DB.clients?.length) seedDB();
+      useFirebase = true;
+      await saveDB();
+    }
+  } else {
+    loadLocal();
+    if(!DB.clients?.length){ seedDB(); saveLocal(); }
+    _setSyncStatus('local');
+    window._onFirebaseReady = async function(){
+      const remote = await window._fbLoad();
+      if(remote && remote.candidates?.length > DB.candidates?.length){ DB = remote; }
+      useFirebase = true;
+      await saveDB();
+      updateNavCounts();
+      renderPage(currentPage);
+    };
+  }
+}
+
+// ── PDF Extract ─────────────────────────────────────────────────
+async function extractPDFText(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=async e=>{
+      try{
+        const pdf=await pdfjsLib.getDocument({data:e.target.result}).promise;
+        let text='';
+        for(let i=1;i<=pdf.numPages;i++){
+          const page=await pdf.getPage(i);
+          const content=await page.getTextContent();
+          text+=content.items.map(item=>item.str).join(' ')+'\n';
+        }
+        resolve(text.trim());
+      }catch(err){reject(err)}
+    };
+    reader.onerror=reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ── AI Aderência ────────────────────────────────────────────────
+async function calcularAderencia(candidatoId,jobId){
+  const cand=DB.candidates.find(x=>x.id===candidatoId);
+  const job=DB.jobs.find(x=>x.id===jobId);
+  if(!cand||!job)return null;
+  const currText=cand.curriculoTexto||`Especialidade: ${cand.especialidade}. CFM: ${cand.cfm||'não informado'}. RQE: ${cand.rqe||'não informado'}. Região: ${cand.regiao}.`;
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:600,
+        messages:[{role:'user',content:`Você é um especialista em recrutamento. Analise o currículo abaixo e o descritivo de vaga e retorne APENAS um JSON válido com exatamente este formato:
+{"nota":85,"resumo":"Explique em 2 frases por que essa nota","pontos_positivos":["item1","item2"],"pontos_atencao":["item1"]}
+
+A nota vai de 0 a 100 indicando o grau de aderência do candidato à vaga.
+
+DESCRITIVO DA VAGA:
+${job.descricao}
+
+CURRÍCULO / DADOS DO CANDIDATO:
+${currText}
+
+Retorne APENAS o JSON, sem nenhum texto adicional.`}]
+      })
+    });
+    const data=await resp.json();
+    const txt=data.content?.find(b=>b.type==='text')?.text||'{}';
+    return JSON.parse(txt.replace(/```json|```/g,'').trim());
+  }catch(e){return null}
+}
+
+// ── SLA ─────────────────────────────────────────────────────────
+function slaInfo(p){
+  if(!p.prazo)return{dias:null,cls:'sla-none',label:'Sem prazo'};
+  const hoje=new Date();hoje.setHours(0,0,0,0);
+  const prazo=new Date(p.prazo+'T00:00:00');
+  const diff=Math.round((prazo-hoje)/(864e5));
+  if(diff<0)return{dias:diff,cls:'sla-late',label:`${Math.abs(diff)}d atrasado`};
+  if(diff<=5)return{dias:diff,cls:'sla-warn',label:`${diff}d restantes`};
+  return{dias:diff,cls:'sla-ok',label:`${diff}d restantes`};
+}
+
+// ── Nav ─────────────────────────────────────────────────────────
+let currentPage='dash';
+let currentProcId=null;
+function go(page,extra){
+  currentPage=page;
+  if(extra)currentProcId=extra;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const nav=document.getElementById('nav-'+page);if(nav)nav.classList.add('active');
+  if(page==='proc'&&!extra){currentProcId=null;}
+  updateNavCounts();renderPage(page);
+}
+function updateNavCounts(){
+  document.getElementById('nc-cand').textContent=DB.candidates.length;
+  document.getElementById('nc-proc').textContent=DB.processes.length;
+  document.getElementById('nc-client').textContent=DB.clients.length;
+  document.getElementById('nc-jobs').textContent=DB.jobs.length;
+}
+function renderPage(page){
+  const titles={dash:'Dashboard',cand:'Candidatos',proc:'Processos seletivos',client:'Empresas clientes',jobs:'Descritivos de vaga',apply:'Links de candidatura'};
+  document.getElementById('pgTitle').textContent=titles[page]||page;
+  document.getElementById('pgSub').textContent='';
+  document.getElementById('pgActions').innerHTML='';
+  const c=document.getElementById('pageContent');
+  if(page==='proc'&&currentProcId){renderProcDetail(c,currentProcId);return;}
+  const fns={dash:renderDash,cand:renderCandidates,proc:renderProcesses,client:renderClients,jobs:renderJobs,apply:renderApply};
+  if(fns[page])fns[page](c);
+}
+
+// ── Dashboard ────────────────────────────────────────────────────
+function renderDash(c){
+  const total=DB.candidates.length;
+  const byStage=s=>DB.candidates.filter(x=>x.etapa===s).length;
+  const contrat=byStage('Contratado');
+  const taxa=total?Math.round(contrat/total*100):0;
+  const procsAtivos=DB.processes.filter(p=>p.status==='aberta');
+  const slaRows=procsAtivos.map(p=>{
+    const cl=DB.clients.find(x=>x.id===p.cliente);
+    const cands=DB.candidates.filter(x=>x.processo===p.id);
+    const sla=slaInfo(p);
+    let elapsed=0,total_days=30;
+    if(p.prazo&&p.inicio){total_days=Math.max(1,Math.round((new Date(p.prazo+'T00:00:00')-new Date(p.inicio+'T00:00:00'))/(864e5)));elapsed=total_days-(sla.dias||0);if(elapsed<0)elapsed=0;}
+    const barPct=Math.min(100,Math.round(elapsed/total_days*100));
+    const barColor=sla.cls==='sla-late'?'var(--red)':sla.cls==='sla-warn'?'var(--amber)':'var(--green)';
+    const stKey=p.status==='aberta'?'aberta':p.status==='pausada'?'pausada':p.status==='cancelada'?'cancelada':'encerrada';
+    return`<tr><td style="font-weight:600;font-size:12px">${esc(p.titulo)}</td><td style="font-size:11px;color:var(--gray-dk)">${esc(cl?.nome||'—')}</td><td style="font-size:11px;color:var(--gray-dk)">${esc(p.recrutador||'—')}</td><td><span class="${sla.cls}" style="font-size:11px">${sla.label}</span><span class="sla-bar-wrap"><span class="sla-bar-fill" style="width:${barPct}%;background:${barColor}"></span></span></td><td style="font-size:11px;color:var(--gray-dk)">${cands.length} cand.</td><td><span class="badge b-${stKey}">${p.status}</span></td></tr>`;
+  }).join('');
+  c.innerHTML=`
+  <div class="stats-grid">
+    <div class="stat"><div class="stat-label">Total candidatos</div><div class="stat-val">${total}</div></div>
+    <div class="stat"><div class="stat-label">Triagem</div><div class="stat-val" style="color:var(--amber)">${byStage('Triagem')}</div></div>
+    <div class="stat"><div class="stat-label">Entrevista</div><div class="stat-val" style="color:var(--blue)">${byStage('Entrevista')}</div></div>
+    <div class="stat"><div class="stat-label">Proposta</div><div class="stat-val" style="color:var(--purple)">${byStage('Proposta')}</div></div>
+    <div class="stat"><div class="stat-label">Contratados</div><div class="stat-val" style="color:var(--green)">${contrat}</div><div class="stat-hint">taxa ${taxa}%</div></div>
+    <div class="stat"><div class="stat-label">Processos ativos</div><div class="stat-val">${procsAtivos.length}</div></div>
+    <div class="stat"><div class="stat-label">Clientes</div><div class="stat-val">${DB.clients.length}</div></div>
+    <div class="stat"><div class="stat-label">Vagas ativas</div><div class="stat-val">${DB.jobs.filter(j=>j.status==='aberta').length}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600">SLA por processo seletivo</div>
+      <div style="font-size:11px;color:var(--gray-dk);display:flex;gap:12px"><span class="sla-ok">● No prazo</span><span class="sla-warn">● Atenção ≤5d</span><span class="sla-late">● Atrasado</span></div>
+    </div>
+    ${procsAtivos.length?`<table class="sla-table"><thead><tr><th>Processo</th><th>Cliente</th><th>Recrutador</th><th>SLA</th><th>Candidatos</th><th>Status</th></tr></thead><tbody>${slaRows}</tbody></table>`:'<div style="color:var(--gray-dk);font-size:13px;padding:12px 0">Nenhum processo ativo</div>'}
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card">
+      <div style="font-size:13px;font-weight:600;margin-bottom:12px">Processos recentes</div>
+      ${DB.processes.slice(-5).reverse().map(p=>{const cl=DB.clients.find(x=>x.id===p.cliente);const sla=slaInfo(p);const stKey=p.status==='aberta'?'aberta':p.status==='pausada'?'pausada':p.status==='cancelada'?'cancelada':'encerrada';return`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F0F4F8"><div><div style="font-size:13px;font-weight:500">${esc(p.titulo)}</div><div style="font-size:11px;color:var(--gray-dk)">${esc(cl?.nome||'—')} · <span class="${sla.cls}">${sla.label}</span></div></div><span class="badge b-${stKey}">${p.status}</span></div>`;}).join('')||'<div style="color:var(--gray-dk);font-size:13px">Nenhum processo</div>'}
+    </div>
+    <div class="card">
+      <div style="font-size:13px;font-weight:600;margin-bottom:12px">Candidatos recentes</div>
+      ${DB.candidates.slice(-6).reverse().map(cd=>{const sk=SK[cd.etapa]||'triagem';const adh=cd.aderencia;return`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F0F4F8"><div><div style="font-size:13px;font-weight:500">${esc(cd.nome)}</div><div style="font-size:11px;color:var(--gray-dk)">${esc(cd.especialidade)}${adh?` · <span style="color:${adh.nota>=70?'var(--green)':adh.nota>=50?'var(--amber)':'var(--red)'};font-weight:600">${adh.nota}% ader.</span>`:''}</div></div><span class="badge ${SBK[sk]||''}">${cd.etapa}</span></div>`;}).join('')||'<div style="color:var(--gray-dk);font-size:13px">Nenhum candidato</div>'}
+    </div>
+  </div>`;
+}
+
+// ── Candidates ───────────────────────────────────────────────────
+let candView='kanban',candSearch='',candType='',candStage='',candProc='';
+function renderCandidates(c){
+  document.getElementById('pgActions').innerHTML=`<button class="btn btn-primary btn-sm" onclick="openCandModal()"><i class="ti ti-plus"></i>Novo candidato</button><button class="btn btn-outline btn-sm" onclick="exportCSV()"><i class="ti ti-download"></i>CSV</button>`;
+  c.innerHTML=`
+  <div class="toolbar">
+    <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Buscar..." id="csearch" value="${esc(candSearch)}" oninput="candSearch=this.value;renderCandList()"></div>
+    <select class="filter-sel" onchange="candType=this.value;renderCandList()"><option value="">Todos tipos</option><option value="Médico"${candType==='Médico'?' selected':''}>Médico</option><option value="Administrativo"${candType==='Administrativo'?' selected':''}>Administrativo</option></select>
+    <select class="filter-sel" onchange="candStage=this.value;renderCandList()"><option value="">Todas etapas</option>${STAGES.map(s=>`<option value="${s}"${candStage===s?' selected':''}>${s}</option>`).join('')}</select>
+    <select class="filter-sel" onchange="candProc=this.value;renderCandList()"><option value="">Todos processos</option>${DB.processes.map(p=>`<option value="${p.id}"${candProc===p.id?' selected':''}>${esc(p.titulo)}</option>`).join('')}</select>
+    <div class="view-switch" style="margin-left:auto">
+      <button class="vs-btn${candView==='kanban'?' on':''}" onclick="candView='kanban';renderCandList()">Kanban</button>
+      <button class="vs-btn${candView==='table'?' on':''}" onclick="candView='table';renderCandList()">Tabela</button>
+    </div>
+  </div>
+  <div id="candList"></div>`;
+  renderCandList();
+}
+function filteredCands(){
+  return DB.candidates.filter(c=>{
+    const q=candSearch.toLowerCase();
+    const mq=!q||[c.nome,c.especialidade,c.regiao,c.recrutador,c.cfm,c.cpf].join(' ').toLowerCase().includes(q);
+    return mq&&(!candType||c.tipo===candType)&&(!candStage||c.etapa===candStage)&&(!candProc||c.processo===candProc);
+  });
+}
+function adhBadge(aderencia){
+  if(!aderencia)return'';
+  const n=aderencia.nota;
+  const bg=n>=70?'var(--green-lt)':n>=50?'var(--amber-lt)':'var(--red-lt)';
+  const fc=n>=70?'var(--green)':n>=50?'var(--amber)':'var(--red)';
+  return`<span class="adh-badge" style="background:${bg};color:${fc}">★ ${n}%</span>`;
+}
+function renderCandList(){
+  const el=document.getElementById('candList');if(!el)return;
+  const data=filteredCands();
+  if(candView==='kanban'){
+    el.innerHTML=`<div class="kanban">${STAGES.map(stage=>{
+      const cards=data.filter(c=>c.etapa===stage);const k=SK[stage];
+      return`<div class="k-col col-${k}"><div class="k-col-hd"><span class="k-col-title">${stage}</span><span class="k-col-n">${cards.length}</span></div>
+      ${cards.map(c=>{const proc=DB.processes.find(p=>p.id===c.processo);return`<div class="k-card" onclick="openCandPanel('${c.id}')">
+        <div class="k-name">${esc(c.nome)}</div>
+        <div class="k-sub">${esc(c.especialidade)}${c.regiao?' · '+esc(c.regiao):''}</div>
+        <div class="k-tags">
+          <span class="badge ${c.tipo==='Médico'?'b-entrevista':'b-proposta'}">${c.tipo}</span>
+          ${proc?`<span class="badge" style="background:var(--teal-pal);color:var(--teal)">${esc(proc.titulo)}</span>`:''}
+          ${c.curriculoTexto?'<span class="badge" style="background:var(--green-lt);color:var(--green)">PDF ✓</span>':''}
+        </div>
+        <div class="k-foot"><span>${esc(c.recrutador||'—')}</span><div style="display:flex;align-items:center;gap:6px">${adhBadge(c.aderencia)}<span style="color:${c.pontuacao>=4?'var(--green)':c.pontuacao>=2?'var(--amber)':'var(--gray-dk)'};font-weight:600;font-size:11px">★${c.pontuacao}</span></div></div>
+      </div>`;}).join('')||'<div style="text-align:center;padding:20px;color:var(--gray-dk);font-size:12px">Vazio</div>'}
+      </div>`;
+    }).join('')}</div>`;
+  }else{
+    el.innerHTML=`<div class="tbl-wrap"><table>
+      <thead><tr><th>Candidato</th><th>CPF</th><th>Tipo</th><th>Especialidade</th><th>Processo</th><th>Etapa</th><th>Aderência IA</th><th>PDF</th><th>Ações</th></tr></thead>
+      <tbody>${data.map(c=>{const sk=SK[c.etapa]||'triagem';const proc=DB.processes.find(p=>p.id===c.processo);return`<tr>
+        <td class="td-name">${esc(c.nome)}</td><td class="td-mono">${esc(c.cpf||'—')}</td>
+        <td><span class="badge ${c.tipo==='Médico'?'b-entrevista':'b-proposta'}">${c.tipo}</span></td>
+        <td>${esc(c.especialidade)}</td><td style="font-size:12px;color:var(--gray-dk)">${esc(proc?.titulo||'—')}</td>
+        <td><span class="badge ${SBK[sk]||''}">${c.etapa}</span></td>
+        <td>${c.aderencia?adhBadge(c.aderencia):'<span style="color:var(--gray-dk);font-size:11px">—</span>'}</td>
+        <td>${c.curriculoUrl?`<a href="${c.curriculoUrl}" target="_blank" class="btn btn-teal btn-xs"><i class="ti ti-eye"></i>Ver</a>`:c.curriculoTexto?'<span class="badge" style="background:var(--green-lt);color:var(--green)">✓ Texto</span>':'<span style="color:var(--gray-dk);font-size:11px">—</span>'}</td>
+        <td><div style="display:flex;gap:4px"><button class="btn btn-outline btn-xs" onclick="openCandPanel('${c.id}')">Ver</button><button class="btn btn-outline btn-xs" onclick="openCandModal('${c.id}')">Editar</button><button class="btn btn-danger btn-xs" onclick="deleteCand('${c.id}')">✕</button></div></td>
+      </tr>`;}).join('')||'<tr><td colspan="9" class="empty-state"><i class="ti ti-users"></i>Nenhum candidato</td></tr>'}
+      </tbody></table></div>`;
+  }
+}
+
+let editCandId=null;
+function openCandModal(id){
+  editCandId=id||null;
+  const c=id?DB.candidates.find(x=>x.id===id):null;
+  document.getElementById('mdCandTitle').textContent=c?'Editar candidato':'Novo candidato';
+  document.getElementById('mdCandBody').innerHTML=`
+    <div class="fg full"><div class="fl">Nome completo *</div><input class="fi" id="fc-nome" value="${esc(c?.nome||'')}"></div>
+    <div class="fg"><div class="fl">CPF</div><input class="fi" id="fc-cpf" placeholder="000.000.000-00" value="${esc(c?.cpf||'')}"></div>
+    <div class="fg"><div class="fl">Tipo *</div><select class="fi" id="fc-tipo"><option${(!c||c.tipo==='Médico')?' selected':''}>Médico</option><option${c?.tipo==='Administrativo'?' selected':''}>Administrativo</option></select></div>
+    <div class="fg"><div class="fl">Especialidade / Cargo</div><input class="fi" id="fc-esp" value="${esc(c?.especialidade||'')}"></div>
+    <div class="fg"><div class="fl">CFM / CRM</div><input class="fi" id="fc-cfm" value="${esc(c?.cfm||'')}"></div>
+    <div class="fg"><div class="fl">RQE</div><input class="fi" id="fc-rqe" value="${esc(c?.rqe||'')}"></div>
+    <div class="fg"><div class="fl">Região</div><input class="fi" id="fc-regiao" value="${esc(c?.regiao||'')}"></div>
+    <div class="fg"><div class="fl">Telefone</div><input class="fi" id="fc-tel" value="${esc(c?.telefone||'')}"></div>
+    <div class="fg"><div class="fl">E-mail</div><input class="fi" id="fc-email" value="${esc(c?.email||'')}"></div>
+    <div class="fg"><div class="fl">Recrutador(a)</div><input class="fi" id="fc-rec" value="${esc(c?.recrutador||'')}"></div>
+    <div class="fg"><div class="fl">Processo seletivo</div><select class="fi" id="fc-proc"><option value="">Sem processo</option>${DB.processes.map(p=>`<option value="${p.id}"${c?.processo===p.id?' selected':''}>${esc(p.titulo)}</option>`).join('')}</select></div>
+    <div class="fg"><div class="fl">Etapa</div><select class="fi" id="fc-etapa">${STAGES.map(s=>`<option${c?.etapa===s?' selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="fg"><div class="fl">Pontuação (0–5)</div><input class="fi" id="fc-pont" type="number" min="0" max="5" value="${c?.pontuacao??0}"></div>
+    <div class="fg full"><div class="fl">Currículo</div>
+      <div class="upload-zone" id="fc-dropzone" onclick="document.getElementById('fc-pdf').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleCandDrop(event)" style="margin-bottom:8px">
+        <i class="ti ti-file-upload"></i>
+        <div class="upload-label">${c?.curriculoTexto?'PDF já processado — clique para substituir':'Clique ou arraste o PDF para extrair o texto'}</div>
+        <div class="upload-sub">PDF até 10MB</div>
+        <div class="upload-success" id="fc-pdf-status">${c?.curriculoTexto?'✓ Texto do currículo disponível':''}</div>
+      </div>
+      <input type="file" id="fc-pdf" accept=".pdf" style="display:none" onchange="handleCandPDF(event)">
+      <div style="font-size:11px;font-weight:600;color:var(--gray-dk);margin-bottom:4px">Texto do currículo (editável)</div>
+      <textarea class="fi" id="fc-curriculo" style="min-height:120px;font-size:11px;line-height:1.6" placeholder="O texto extraído do PDF aparecerá aqui, ou cole manualmente...">${esc(c?.curriculoTexto||'')}</textarea>
+    </div>
+    <div class="fg full"><div class="fl">Observações</div><textarea class="fi" id="fc-obs">${esc(c?.obs||'')}</textarea></div>`;
+  openModal('mdCandidate');
+}
+let pendingPDFText='';
+let pendingPDFUrl='';
+async function handleCandPDF(e){
+  const file=e.target.files[0];if(!file)return;
+  const status=document.getElementById('fc-pdf-status');
+  status.textContent='Extraindo texto do PDF...';status.style.color='var(--amber)';
+  try{
+    pendingPDFText=await extractPDFText(file);
+    status.textContent=`✓ Texto extraído (${(pendingPDFText.length/1000).toFixed(1)}k chars)`;
+    status.style.color='var(--green)';
+    // Show extracted text in the textarea
+    const ta=document.getElementById('fc-curriculo');
+    if(ta) ta.value=pendingPDFText;
+  }catch(err){status.textContent='Erro ao ler PDF.';status.style.color='var(--red)';}
+}
+async function handleCandDrop(e){
+  e.preventDefault();document.getElementById('fc-dropzone').classList.remove('drag');
+  const file=e.dataTransfer.files[0];if(!file||file.type!=='application/pdf')return;
+  await handleCandPDF({target:{files:[file]}});
+}
+async function saveCandidate(){
+  const nome=document.getElementById('fc-nome').value.trim();if(!nome){alert('Nome obrigatório.');return;}
+  const d={nome,cpf:document.getElementById('fc-cpf').value.trim(),tipo:document.getElementById('fc-tipo').value,especialidade:document.getElementById('fc-esp').value.trim(),cfm:document.getElementById('fc-cfm').value.trim(),rqe:document.getElementById('fc-rqe').value.trim(),regiao:document.getElementById('fc-regiao').value.trim(),telefone:document.getElementById('fc-tel').value.trim(),email:document.getElementById('fc-email').value.trim(),recrutador:document.getElementById('fc-rec').value.trim(),processo:document.getElementById('fc-proc').value,etapa:document.getElementById('fc-etapa').value,pontuacao:parseInt(document.getElementById('fc-pont').value)||0,obs:document.getElementById('fc-obs').value.trim()};
+  const fcCurriculo=document.getElementById('fc-curriculo')?.value.trim();
+  if(fcCurriculo){d.curriculoTexto=fcCurriculo;d.aderencia=null;}
+  else if(pendingPDFText){d.curriculoTexto=pendingPDFText;d.aderencia=null;}
+  if(editCandId){const i=DB.candidates.findIndex(x=>x.id===editCandId);if(i>=0)DB.candidates[i]={...DB.candidates[i],...d};toast('Candidato atualizado ✓');}
+  else{DB.candidates.push({id:uid(),curriculo:'',curriculoTexto:'',aderencia:null,...d});toast('Candidato adicionado ✓');}
+  pendingPDFText='';pendingPDFUrl='';await saveDB();closeModal('mdCandidate');renderPage(currentPage);
+}
+async function deleteCand(id){if(!confirm('Excluir candidato?'))return;DB.candidates=DB.candidates.filter(x=>x.id!==id);await saveDB();renderPage(currentPage);toast('Removido');}
+
+function openCandPanel(id){
+  const c=DB.candidates.find(x=>x.id===id);if(!c)return;
+  const proc=DB.processes.find(p=>p.id===c.processo);
+  const client=proc?DB.clients.find(cl=>cl.id===proc.cliente):null;
+  const job=proc?DB.jobs.find(j=>j.id===proc.job):null;
+  const adh=c.aderencia;
+  const panel=document.getElementById('sidePanel');
+  const adhSection=adh?`
+    <div class="panel-sec"><div class="ps-title">Aderência à vaga (IA)</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="font-size:28px;font-weight:700;color:${adh.nota>=70?'var(--green)':adh.nota>=50?'var(--amber)':'var(--red)'};">${adh.nota}%</div>
+        <div class="adh-bar" style="flex:1"><div class="adh-fill ${adh.nota>=70?'adh-high':adh.nota>=50?'adh-mid':'adh-low'}" style="width:${adh.nota}%"></div></div>
+      </div>
+      <div style="font-size:12px;color:var(--gray-dk);margin-bottom:8px">${esc(adh.resumo)}</div>
+      ${adh.pontos_positivos?.length?`<div style="font-size:11px;font-weight:600;color:var(--green);margin-bottom:4px">Pontos positivos</div>${adh.pontos_positivos.map(p=>`<div style="font-size:11px;padding:2px 0">✓ ${esc(p)}</div>`).join('')}`:''}
+      ${adh.pontos_atencao?.length?`<div style="font-size:11px;font-weight:600;color:var(--amber);margin-top:6px;margin-bottom:4px">Pontos de atenção</div>${adh.pontos_atencao.map(p=>`<div style="font-size:11px;padding:2px 0">⚠ ${esc(p)}</div>`).join('')}`:''}
+    </div>`:`<div class="panel-sec"><div class="ps-title">Aderência à vaga (IA)</div>
+      ${c.curriculoTexto&&job?`<button class="btn btn-teal btn-sm" id="btnCalcAdh" onclick="runAderencia('${id}')"><i class="ti ti-cpu"></i>Calcular aderência com IA</button><div id="adhStatus" style="margin-top:8px"></div>`:`<div style="font-size:12px;color:var(--gray-dk)">${!c.curriculoTexto?'Faça upload do currículo PDF para calcular.':'Vincule o candidato a um processo com descritivo de vaga.'}</div>`}
+    </div>`;
+  panel.innerHTML=`
+    <div class="panel-top"><div class="panel-name">${esc(c.nome)}</div><div class="panel-sub">${esc(c.tipo)} · ${esc(c.especialidade)}</div></div>
+    <div class="panel-body">
+      <div class="panel-sec"><div class="ps-title">Dados do candidato</div>
+        ${[['CPF',c.cpf||'—'],['CFM/CRM',c.cfm||'INCLUIR'],['RQE',c.rqe||'INCLUIR'],['Região',c.regiao||'—'],['Telefone',c.telefone||'—'],['E-mail',c.email||'—'],['Recrutador',c.recrutador||'—'],['Pontuação','★ '+c.pontuacao+'/5']].map(([k,v])=>`<div class="prow"><span class="pk">${k}</span><span class="pv">${esc(v)}</span></div>`).join('')}
+        <div class="contact-btns">
+          ${c.telefone?`<a class="contact-btn contact-btn-wa" href="https://wa.me/55${c.telefone.replace(/\D/g,'')}" target="_blank">📱 WhatsApp</a>`:''}
+          ${c.telefone?`<a class="contact-btn contact-btn-tel" href="tel:${c.telefone.replace(/\D/g,'')}">📞 Ligar</a>`:''}
+          ${c.email?`<a class="contact-btn contact-btn-email" href="mailto:${c.email}">✉️ E-mail</a>`:''}
+          <button class="contact-btn contact-btn-bf" onclick="copyBFLink('${id}')">🧠 Copiar link Big Five</button>
+        </div>
+        <div style="margin-top:12px">
+          <div class="ps-title">🧠 Big Five (OCEAN)</div>
+          ${c.bigfive ? `
+            <div class="bf-grid">
+              ${['O','C','E','A','N'].map(d=>{const lv=c.bigfive[d]>=70?'Alto':c.bigfive[d]>=40?'Moderado':'Baixo';return`<div class="bf-card bf-${d}"><div class="bf-lbl">${{O:'Abertura',C:'Conscienc.',E:'Extroversão',A:'Amabilidade',N:'Neuroticismo'}[d]}</div><div class="bf-pct">${c.bigfive[d]}%</div><div class="bf-lv">${lv}</div></div>`;}).join('')}
+            </div>
+            <div style="font-size:11px;color:var(--gray-dk);margin-bottom:8px">Realizado em: ${c.bigfiveDate||'—'}</div>
+            ${c.bigfiveRelatorio
+              ? `<div class="bf-report">${esc(c.bigfiveRelatorio)}</div><button class="btn btn-teal btn-xs" style="margin-top:6px;width:100%" onclick="gerarRelatorioBF('${id}')">🔄 Regenerar relatório</button>`
+              : `<button class="btn btn-teal btn-xs" style="width:100%" id="btnBFReport-${id}" onclick="gerarRelatorioBF('${id}')">🤖 Gerar relatório com IA</button><div id="bf-status-${id}" style="font-size:11px;margin-top:4px;color:var(--blue)"></div>`
+            }
+          ` : `
+            <div style="font-size:12px;color:var(--gray-dk);margin-bottom:6px">Avaliação não realizada.</div>
+            <button class="btn btn-teal btn-xs" style="width:100%" onclick="sendBFWhatsApp('${id}')">📱 Enviar link Big Five por WhatsApp</button>
+          `}
+        </div>
+        ${c.curriculoTexto?`<div class="prow"><span class="pk">Currículo PDF</span><span class="pv" style="display:flex;align-items:center;gap:6px;justify-content:flex-end">${c.curriculoUrl?`<a href="${c.curriculoUrl}" target="_blank" class="btn btn-teal btn-xs"><i class="ti ti-eye"></i>Ver PDF</a>`:'<span style="color:var(--green)">✓ Texto salvo</span>'}</span></div>`:''}
+      </div>
+      <div class="panel-sec"><div class="ps-title">Processo seletivo</div>
+        ${proc?`<div class="prow"><span class="pk">Processo</span><span class="pv">${esc(proc.titulo)}</span></div><div class="prow"><span class="pk">Cliente</span><span class="pv">${esc(client?.nome||'—')}</span></div><div class="prow"><span class="pk">Vaga</span><span class="pv">${esc(job?.titulo||'—')}</span></div>`:'<div style="font-size:12px;color:var(--gray-dk)">Não vinculado a processo</div>'}
+      </div>
+      ${adhSection}
+      <div class="panel-sec"><div class="ps-title">Etapa atual</div>
+        <select class="fi" onchange="updateCandStage('${id}',this.value)">${STAGES.map(s=>`<option${c.etapa===s?' selected':''}>${s}</option>`).join('')}</select>
+      </div>
+      <div class="panel-sec"><div class="ps-title">Observações</div>
+        <textarea class="fi" style="min-height:80px" id="obs-${id}">${esc(c.obs||'')}</textarea>
+        <button class="btn btn-outline btn-sm" style="margin-top:6px;width:100%" onclick="updateCandObs('${id}')"><i class="ti ti-device-floppy"></i>Salvar observação</button>
+      </div>
+      ${c.curriculoTexto?`<div class="panel-sec"><div class="ps-title" style="display:flex;align-items:center;justify-content:space-between">Currículo <span style="font-size:10px;color:var(--gray-dk)">${(c.curriculoTexto.length/1000).toFixed(1)}k caracteres</span></div>
+        <div style="background:var(--gray);border-radius:var(--rs);padding:12px;font-size:12px;line-height:1.65;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;color:var(--dark)">${esc(c.curriculoTexto)}</div>
+      </div>`:''}
+      <div class="panel-sec"><div class="ps-title">Atualizar currículo</div>
+        <div style="background:var(--blue-pal);border:1px solid var(--blue-lit);border-radius:var(--rs);padding:10px 12px;font-size:12px;color:var(--blue);margin-bottom:8px">
+          Cole o texto do currículo abaixo para atualizar o perfil do candidato.
+        </div>
+        <textarea class="fi" id="curriculo-texto-${id}" style="min-height:100px;font-size:12px" placeholder="Cole aqui o texto do currículo...">${esc(c.curriculoTexto||'')}</textarea>
+        <button class="btn btn-teal btn-sm" style="width:100%;margin-top:6px" onclick="updateCurriculoTexto('${id}')"><i class="ti ti-device-floppy"></i>Salvar currículo</button>
+      </div>
+    </div>
+    <div class="panel-ft">
+      <button class="btn btn-outline btn-sm" style="flex:1" onclick="closePanel()">Fechar</button>
+      <button class="btn btn-teal btn-sm" onclick="agendarEntrevista('${id}')"><i class="ti ti-calendar-event"></i>Agendar</button>
+      <button class="btn btn-outline btn-sm" onclick="openCandModal('${id}');closePanel()">Editar</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteCand('${id}');closePanel()">Excluir</button>
+    </div>`;
+  openPanel();
+}
+async function handlePanelPDF(e,candId){
+  const file=e.target.files[0];if(!file)return;
+  const status=document.getElementById(`panel-pdf-status-${candId}`);
+  const cand=DB.candidates.find(x=>x.id===candId);
+  status.textContent='Processando PDF...';status.style.color='var(--amber)';
+  try{
+    const text=await extractPDFText(file);
+    status.textContent='⬆ Enviando para nuvem...';status.style.color='var(--blue)';
+    const result=await uploadPDFToCloudinary(file, cand?.nome||candId);
+    const i=DB.candidates.findIndex(x=>x.id===candId);
+    if(i>=0){
+      DB.candidates[i].curriculoTexto=text;
+      DB.candidates[i].aderencia=null;
+      if(result) DB.candidates[i].curriculoUrl=result.url;
+      await saveDB();
+    }
+    status.textContent=result?`✓ PDF salvo na nuvem`:`✓ Texto extraído`;
+    status.style.color='var(--green)';
+    toast('PDF processado ✓');setTimeout(()=>openCandPanel(candId),1000);
+  }catch(err){status.textContent='Erro ao processar PDF.';status.style.color='var(--red)';}
+}
+async function runAderencia(candId){
+  const btn=document.getElementById('btnCalcAdh');const status=document.getElementById('adhStatus');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="ai-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div> Analisando com IA...</div>';}
+  const cand=DB.candidates.find(x=>x.id===candId);
+  const proc=DB.processes.find(p=>p.id===cand?.processo);
+  const result=await calcularAderencia(candId,proc?.job);
+  if(result){
+    const i=DB.candidates.findIndex(x=>x.id===candId);if(i>=0){DB.candidates[i].aderencia=result;await saveDB();}
+    toast(`Aderência calculada: ${result.nota}% ✓`);openCandPanel(candId);
+  }else{
+    if(status)status.innerHTML='<div style="color:var(--red);font-size:12px">Erro ao calcular. Verifique a conexão.</div>';
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-cpu"></i>Tentar novamente';}
+  }
+}
+async function updateCandStage(id,val){const i=DB.candidates.findIndex(x=>x.id===id);if(i<0)return;DB.candidates[i].etapa=val;await saveDB();renderPage(currentPage);toast('Etapa atualizada ✓');}
+async function updateCurriculoTexto(id){
+  const val=document.getElementById('curriculo-texto-'+id)?.value||'';
+  if(!val.trim()){toast('Cole o texto do currículo primeiro');return;}
+  const i=DB.candidates.findIndex(x=>x.id===id);
+  if(i<0)return;
+  DB.candidates[i].curriculoTexto=val;
+  DB.candidates[i].aderencia=null; // reset aderencia when CV changes
+  await saveDB();
+  toast('Currículo atualizado ✓ — recalcule a aderência!');
+  openCandPanel(id);
+}
+async function updateCandObs(id){const val=document.getElementById('obs-'+id)?.value||'';const i=DB.candidates.findIndex(x=>x.id===id);if(i<0)return;DB.candidates[i].obs=val;await saveDB();toast('Observação salva ✓');}
+
+// ── Google Calendar Integration ──────────────────────────────────
+function agendarEntrevista(candId){
+  const cand=DB.candidates.find(x=>x.id===candId);
+  if(!cand){toast('Candidato não encontrado');return;}
+  const proc=DB.processes.find(p=>p.id===cand.processo);
+  const cl=proc?DB.clients.find(x=>x.id===proc.cliente):null;
+
+  // Preenche modal de agendamento
+  document.getElementById('mdGcalTitle').textContent='Agendar entrevista — '+cand.nome;
+  document.getElementById('gcal-cand-nome').textContent=cand.nome;
+  document.getElementById('gcal-cand-esp').textContent=cand.especialidade||'—';
+  document.getElementById('gcal-cand-proc').textContent=proc?.titulo||'Sem processo';
+  document.getElementById('gcal-cand-cliente').textContent=cl?.nome||'—';
+  document.getElementById('gcal-cand-tel').textContent=cand.telefone||'—';
+  document.getElementById('gcal-cand-email').textContent=cand.email||'—';
+
+  // Data padrão: amanhã 09:00
+  const amanha=new Date();amanha.setDate(amanha.getDate()+1);
+  const dataStr=amanha.toISOString().slice(0,10);
+  document.getElementById('gcal-data').value=dataStr;
+  document.getElementById('gcal-hora').value='09:00';
+  document.getElementById('gcal-duracao').value='60';
+  document.getElementById('gcal-local').value='Google Meet';
+  document.getElementById('gcal-candId').value=candId;
+  document.getElementById('gcal-obs').value='';
+
+  openModal('mdGcal');
+}
+
+function gerarLinkGcal(){
+  const candId=document.getElementById('gcal-candId').value;
+  const cand=DB.candidates.find(x=>x.id===candId);
+  const proc=DB.processes.find(p=>p.id===cand?.processo);
+  const data=document.getElementById('gcal-data').value;
+  const hora=document.getElementById('gcal-hora').value;
+  const duracao=parseInt(document.getElementById('gcal-duracao').value)||60;
+  const local=document.getElementById('gcal-local').value;
+  const obs=document.getElementById('gcal-obs').value;
+
+  if(!data||!hora){toast('Preencha data e horário');return;}
+
+  const inicio=new Date(data+'T'+hora+':00');
+  const fim=new Date(inicio.getTime()+duracao*60000);
+
+  const fmt=d=>d.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  const title=encodeURIComponent(`Entrevista — ${cand?.nome||'Candidato'}`);
+  const details=encodeURIComponent(
+    `Candidato: ${cand?.nome||'—'}
+Especialidade: ${cand?.especialidade||'—'}
+Processo: ${proc?.titulo||'—'}
+Telefone: ${cand?.telefone||'—'}
+E-mail: ${cand?.email||'—'}
+
+${obs}`
+  );
+  const loc=encodeURIComponent(local);
+  const dates=encodeURIComponent(fmt(inicio)+'/'+fmt(fim));
+
+  const url=`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}&location=${loc}`;
+  window.open(url,'_blank');
+  closeModal('mdGcal');
+  toast('Abrindo Google Calendar ✓');
+}
+
+// ── Clients ──────────────────────────────────────────────────────
+function renderClients(c){
+  document.getElementById('pgActions').innerHTML=`<button class="btn btn-primary btn-sm" onclick="openClientModal()"><i class="ti ti-plus"></i>Nova empresa</button>`;
+  c.innerHTML=`<div class="client-grid" id="clientGrid"></div>`;renderClientGrid();
+}
+function renderClientGrid(){
+  const g=document.getElementById('clientGrid');if(!g)return;
+  if(!DB.clients.length){g.innerHTML='<div class="empty-state"><i class="ti ti-building-hospital"></i><div>Nenhuma empresa</div></div>';return;}
+  g.innerHTML=DB.clients.map(cl=>{
+    const procs=DB.processes.filter(p=>p.cliente===cl.id);
+    const cands=DB.candidates.filter(c=>procs.some(p=>p.id===c.processo));
+    const vagas=DB.jobs.filter(j=>j.cliente===cl.id);
+    const init=cl.nome.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+    return`<div class="client-card" onclick="openClientPanel('${cl.id}')">
+      <div class="cc-top"><div class="cc-avatar">${esc(init)}</div><div><div class="cc-name">${esc(cl.nome)}</div><div class="cc-seg">${esc(cl.segmento||'—')} · ${esc(cl.cidade||'—')}</div></div></div>
+      <div class="cc-stats"><div class="cc-stat"><i class="ti ti-briefcase"></i>${procs.length} processo${procs.length!==1?'s':''}</div><div class="cc-stat"><i class="ti ti-file-description"></i>${vagas.length} vaga${vagas.length!==1?'s':''}</div><div class="cc-stat"><i class="ti ti-users"></i>${cands.length} candidato${cands.length!==1?'s':''}</div></div>
+    </div>`;
+  }).join('');
+}
+let editClientId=null;
+function openClientModal(id){
+  editClientId=id||null;const cl=id?DB.clients.find(x=>x.id===id):null;
+  document.getElementById('mdClientTitle').textContent=cl?'Editar empresa':'Nova empresa cliente';
+  document.getElementById('mdClientBody').innerHTML=`
+    <div class="fg full"><div class="fl">Nome da empresa *</div><input class="fi" id="cl-nome" value="${esc(cl?.nome||'')}"></div>
+    <div class="fg"><div class="fl">Segmento</div><input class="fi" id="cl-seg" value="${esc(cl?.segmento||'')}"></div>
+    <div class="fg"><div class="fl">Cidade</div><input class="fi" id="cl-cidade" value="${esc(cl?.cidade||'')}"></div>
+    <div class="fg"><div class="fl">Contato principal</div><input class="fi" id="cl-contato" value="${esc(cl?.contato||'')}"></div>
+    <div class="fg"><div class="fl">Telefone</div><input class="fi" id="cl-tel" value="${esc(cl?.telefone||'')}"></div>
+    <div class="fg"><div class="fl">E-mail</div><input class="fi" id="cl-email" value="${esc(cl?.email||'')}"></div>
+    <div class="fg full"><div class="fl">Observações</div><textarea class="fi" id="cl-obs">${esc(cl?.obs||'')}</textarea></div>`;
+  openModal('mdClient');
+}
+async function saveClient(){
+  const nome=document.getElementById('cl-nome').value.trim();if(!nome){alert('Nome obrigatório.');return;}
+  const d={nome,segmento:document.getElementById('cl-seg').value.trim(),cidade:document.getElementById('cl-cidade').value.trim(),contato:document.getElementById('cl-contato').value.trim(),telefone:document.getElementById('cl-tel').value.trim(),email:document.getElementById('cl-email').value.trim(),obs:document.getElementById('cl-obs').value.trim()};
+  if(editClientId){const i=DB.clients.findIndex(x=>x.id===editClientId);if(i>=0)DB.clients[i]={...DB.clients[i],...d};toast('Empresa atualizada ✓');}
+  else{DB.clients.push({id:uid(),...d});toast('Empresa adicionada ✓');}
+  await saveDB();closeModal('mdClient');renderPage(currentPage);
+}
+function openClientPanel(id){
+  const cl=DB.clients.find(x=>x.id===id);if(!cl)return;
+  const procs=DB.processes.filter(p=>p.cliente===id);
+  const vagas=DB.jobs.filter(j=>j.cliente===id);
+  const panel=document.getElementById('sidePanel');
+  panel.innerHTML=`
+    <div class="panel-top"><div class="panel-name">${esc(cl.nome)}</div><div class="panel-sub">${esc(cl.segmento||'')}${cl.cidade?' · '+esc(cl.cidade):''}</div></div>
+    <div class="panel-body">
+      <div class="panel-sec"><div class="ps-title">Dados da empresa</div>
+        ${[['Contato',cl.contato||'—'],['Telefone',cl.telefone||'—'],['E-mail',cl.email||'—'],['Obs',cl.obs||'—']].map(([k,v])=>`<div class="prow"><span class="pk">${k}</span><span class="pv">${esc(v)}</span></div>`).join('')}
+      </div>
+      <div class="panel-sec"><div class="ps-title">Processos (${procs.length})</div>
+        ${procs.length?procs.map(p=>{const pc=DB.candidates.filter(c=>c.processo===p.id).length;const stKey=p.status==='aberta'?'aberta':p.status==='pausada'?'pausada':p.status==='cancelada'?'cancelada':'encerrada';return`<div class="card-sm" style="margin-bottom:8px"><div style="font-size:13px;font-weight:600">${esc(p.titulo)}</div><div style="font-size:11px;color:var(--gray-dk);margin-top:3px">${pc} candidatos · <span class="badge b-${stKey}">${p.status}</span></div></div>`;}).join(''):'<div style="font-size:12px;color:var(--gray-dk)">Nenhum processo</div>'}
+      </div>
+      <div class="panel-sec"><div class="ps-title">Vagas (${vagas.length})</div>
+        ${vagas.length?vagas.map(j=>`<div class="card-sm" style="margin-bottom:8px"><div style="font-size:13px;font-weight:600">${esc(j.titulo)}</div><div style="font-size:11px;color:var(--gray-dk);margin-top:3px">${esc(j.tipo)} · <span class="badge b-${j.status==='aberta'?'aberta':'encerrada'}">${j.status}</span></div></div>`).join(''):'<div style="font-size:12px;color:var(--gray-dk)">Nenhuma vaga</div>'}
+      </div>
+    </div>
+    <div class="panel-ft"><button class="btn btn-outline btn-sm" style="flex:1" onclick="closePanel()">Fechar</button><button class="btn btn-outline btn-sm" onclick="openClientModal('${id}');closePanel()">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteClient('${id}')">Excluir</button></div>`;
+  openPanel();
+}
+async function deleteClient(id){if(!confirm('Excluir esta empresa?'))return;DB.clients=DB.clients.filter(x=>x.id!==id);await saveDB();closePanel();renderPage(currentPage);toast('Empresa removida');}
+
+// ── Processes ────────────────────────────────────────────────────
+function renderProcesses(c){
+  document.getElementById('pgActions').innerHTML=`<button class="btn btn-primary btn-sm" onclick="openProcModal()"><i class="ti ti-plus"></i>Novo processo</button>`;
+  c.innerHTML=`
+  <div class="toolbar">
+    <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Buscar processo..." id="psearch" oninput="renderProcList(this.value)"></div>
+    <select class="filter-sel" id="pf-client" onchange="renderProcList()"><option value="">Todos clientes</option>${DB.clients.map(cl=>`<option value="${cl.id}">${esc(cl.nome)}</option>`).join('')}</select>
+    <select class="filter-sel" id="pf-status" onchange="renderProcList()"><option value="">Todos status</option><option value="aberta">Aberta</option><option value="pausada">Pausada</option><option value="cancelada">Cancelada</option><option value="encerrada">Encerrada</option></select>
+  </div>
+  <div class="proc-grid" id="procGrid"></div>`;
+  renderProcList();
+}
+function renderProcList(q){
+  const grid=document.getElementById('procGrid');if(!grid)return;
+  const search=(q||document.getElementById('psearch')?.value||'').toLowerCase();
+  const fc=document.getElementById('pf-client')?.value||'';
+  const fs=document.getElementById('pf-status')?.value||'';
+  const data=DB.processes.filter(p=>{const cl=DB.clients.find(x=>x.id===p.cliente);const mq=!search||[p.titulo,cl?.nome||'',p.recrutador].join(' ').toLowerCase().includes(search);return mq&&(!fc||p.cliente===fc)&&(!fs||p.status===fs);});
+  if(!data.length){grid.innerHTML='<div class="empty-state"><i class="ti ti-briefcase"></i><div>Nenhum processo</div></div>';return;}
+  grid.innerHTML=data.map(p=>{
+    const cl=DB.clients.find(x=>x.id===p.cliente);
+    const cands=DB.candidates.filter(c=>c.processo===p.id);
+    const byStage=s=>cands.filter(c=>c.etapa===s).length;
+    const pct=cands.length?Math.round(byStage('Contratado')/cands.length*100):0;
+    const sla=slaInfo(p);
+    const stKey=p.status==='aberta'?'aberta':p.status==='pausada'?'pausada':p.status==='cancelada'?'cancelada':'encerrada';
+    return`<div class="proc-card" onclick="go('proc','${p.id}')">
+      <div class="pc-top"><div class="pc-title">${esc(p.titulo)}</div><span class="badge b-${stKey}">${p.status}</span></div>
+      <div class="pc-client">${esc(cl?.nome||'—')} · ${esc(p.recrutador||'—')}</div>
+      <div class="pc-tags"><span class="badge b-entrevista">${cands.length} candidatos</span><span class="${sla.cls}" style="font-size:11px;font-weight:600">${sla.label}</span></div>
+      <div class="pc-bar"><div class="pc-bar-fill" style="width:${pct}%"></div></div>
+      <div class="pc-foot"><span>Início: ${p.inicio||'—'}</span><span>Prazo: ${p.prazo||'—'}</span></div>
+    </div>`;
+  }).join('');
+}
+function renderProcDetail(c,procId){
+  const p=DB.processes.find(x=>x.id===procId);if(!p){go('proc');return;}
+  const cl=DB.clients.find(x=>x.id===p.cliente);
+  const job=DB.jobs.find(x=>x.id===p.job);
+  const cands=DB.candidates.filter(x=>x.processo===procId);
+  const byStage=s=>cands.filter(x=>x.etapa===s).length;
+  const sla=slaInfo(p);
+  const stKey=p.status==='aberta'?'aberta':p.status==='pausada'?'pausada':p.status==='cancelada'?'cancelada':'encerrada';
+  const ranked=cands.filter(x=>x.aderencia).sort((a,b)=>(b.aderencia?.nota||0)-(a.aderencia?.nota||0));
+
+  // topbar
+  document.getElementById('pgTitle').innerHTML=`<span style="cursor:pointer;color:var(--blue)" onclick="go('proc')">Processos</span> <span style="color:var(--gray-dk);font-weight:400">/ ${esc(p.titulo)}</span>`;
+  document.getElementById('pgActions').innerHTML=`
+    <button class="btn btn-outline btn-sm" onclick="openCandModalForProc('${procId}')"><i class="ti ti-user-plus"></i>Adicionar candidato</button>
+    <button class="btn btn-outline btn-sm" onclick="openProcModal('${procId}')"><i class="ti ti-edit"></i>Editar</button>
+    <button class="btn btn-danger btn-sm" onclick="deleteProc('${procId}')"><i class="ti ti-trash"></i></button>`;
+
+  // kanban columns
+  const kanbanCols = STAGES.map(stage=>{
+    const cards=cands.filter(x=>x.etapa===stage);
+    const k=SK[stage];
+    const cardsHTML=cards.map(cd=>{
+      const adh=cd.aderencia;
+      const adhHTML=adh?`<span style="font-size:10px;font-weight:700;color:${adh.nota>=70?'var(--green)':adh.nota>=50?'var(--amber)':'var(--red)'}">★${adh.nota}%</span>`:'';
+      return`<div class="pk-card" onclick="openCandPanel('${cd.id}')">
+        <div class="pk-name">${esc(cd.nome)}</div>
+        <div class="pk-sub">${esc(cd.especialidade||'—')}</div>
+        <div class="pk-foot">
+          <div style="display:flex;gap:4px">
+            ${STAGES.filter(s=>s!==stage).slice(0,2).map(s=>`<button class="stage-move-btn" onclick="event.stopPropagation();moveCandStage('${cd.id}','${s}','${procId}')">${s}</button>`).join('')}
+          </div>
+          ${adhHTML}
+        </div>
+      </div>`;
+    }).join('');
+    return`<div class="pk-col col-${k}">
+      <div class="pk-col-hd"><span class="pk-col-title">${stage}</span><span class="pk-col-n">${cards.length}</span></div>
+      ${cardsHTML}
+      <button class="pk-add" onclick="openCandModalForProc('${procId}','${stage}')"><i class="ti ti-plus"></i> Adicionar</button>
+    </div>`;
+  }).join('');
+
+  // ranking
+  const rankingHTML=ranked.length?ranked.map((cd,i)=>{
+    const adh=cd.aderencia;
+    const barColor=adh.nota>=70?'var(--green)':adh.nota>=50?'var(--amber)':'var(--red)';
+    return`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #F0F4F8">
+      <div style="font-size:12px;font-weight:700;color:var(--gray-dk);width:20px">${i+1}º</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openCandPanel('${cd.id}')">${esc(cd.nome)}</div>
+        <div style="height:6px;background:var(--gray-mid);border-radius:3px;margin-top:4px"><div style="height:6px;border-radius:3px;background:${barColor};width:${adh.nota}%;transition:width .6s"></div></div>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:${barColor};min-width:40px;text-align:right">${adh.nota}%</div>
+      <span class="badge ${SBK[SK[cd.etapa]]||''}">${cd.etapa}</span>
+    </div>`;
+  }).join(''):'<div style="font-size:12px;color:var(--gray-dk)">Nenhum candidato com aderência calculada ainda.</div>';
+
+  c.innerHTML=`
+  <div style="background:var(--navy);padding:18px 24px;margin:-20px -24px 20px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
+    <div>
+      <div style="font-size:18px;font-weight:600;color:#fff;margin-bottom:4px">${esc(p.titulo)}</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.55)">${esc(cl?.nome||'—')} · Recrutador: ${esc(p.recrutador||'—')}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <span class="proc-meta-tag"><i class="ti ti-calendar" style="font-size:12px"></i>Início: ${p.inicio||'—'}</span>
+        <span class="proc-meta-tag"><i class="ti ti-flag" style="font-size:12px"></i>Prazo: ${p.prazo||'—'}</span>
+        <span class="proc-meta-tag ${sla.cls}"><i class="ti ti-clock" style="font-size:12px"></i>${sla.label}</span>
+        <span class="badge b-${stKey}" style="align-self:center">${p.status}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm ${p.status==='aberta'?'':'btn-outline'}" onclick="setProcStatus('${procId}','aberta')">Aberta</button>
+      <button class="btn btn-ghost btn-sm" onclick="setProcStatus('${procId}','pausada')">Pausar</button>
+      <button class="btn btn-ghost btn-sm" onclick="setProcStatus('${procId}','encerrada')">Encerrar</button>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:16px">
+    ${STAGES.map(s=>{const n=byStage(s);const sk=SK[s];return`<div class="stat" style="padding:10px 14px"><div class="stat-label">${s}</div><div class="stat-val" style="font-size:18px">${n}</div></div>`;}).join('')}
+  </div>
+
+  <div class="proc-section">
+    <div class="proc-section-hd">
+      <span class="proc-section-title"><i class="ti ti-layout-kanban" style="font-size:13px;margin-right:4px"></i>Pipeline de candidatos</span>
+      <button class="btn btn-primary btn-xs" onclick="openCandModalForProc('${procId}')"><i class="ti ti-user-plus"></i>Adicionar candidato</button>
+    </div>
+    <div class="proc-kanban">${kanbanCols}</div>
+  </div>
+
+  ${ranked.length?`<div class="proc-section">
+    <div class="proc-section-hd"><span class="proc-section-title"><i class="ti ti-trophy" style="font-size:13px;margin-right:4px"></i>Ranking de aderência IA</span></div>
+    <div class="proc-section-body">${rankingHTML}</div>
+  </div>`:''}
+
+  <div class="proc-section">
+    <div class="proc-section-hd"><span class="proc-section-title"><i class="ti ti-info-circle" style="font-size:13px;margin-right:4px"></i>Detalhes do processo</span></div>
+    <div class="proc-section-body">
+      ${[['Empresa',cl?.nome||'—'],['Descritivo vinculado',job?.titulo||'Nenhum'],['Observações',p.obs||'—']].map(([k,v])=>`<div class="prow"><span class="pk">${k}</span><span class="pv">${esc(v)}</span></div>`).join('')}
+      ${job?`<div style="margin-top:10px"><div style="font-size:11px;font-weight:600;color:var(--gray-dk);margin-bottom:6px">LINK DE CANDIDATURA</div>
+        <div class="link-box"><i class="ti ti-link" style="color:var(--blue)"></i><span class="link-url">${makeApplyLink(job.id)}</span>
+          <button class="btn btn-teal btn-xs" onclick="copyLink('${job.id}')"><i class="ti ti-copy"></i>Copiar</button>
+          <button class="btn btn-purple btn-xs" onclick="window.open(makeApplyLink('${job.id}'),'_blank')"><i class="ti ti-external-link"></i>Abrir</button>
+        </div></div>`:''}
+    </div>
+  </div>`;
+}
+
+async function moveCandStage(candId, newStage, procId){
+  const i=DB.candidates.findIndex(x=>x.id===candId);
+  if(i<0)return;
+  DB.candidates[i].etapa=newStage;
+  await saveDB();
+  renderProcDetail(document.getElementById('pageContent'),procId);
+  toast(`Movido para ${newStage} ✓`);
+}
+
+function openCandModalForProc(procId, etapa){
+  openCandModal();
+  setTimeout(()=>{
+    const sel=document.getElementById('fc-proc');
+    if(sel)sel.value=procId;
+    if(etapa){const etSel=document.getElementById('fc-etapa');if(etSel)etSel.value=etapa;}
+  },50);
+}
+
+let editProcId=null;
+function openProcModal(id){
+  editProcId=id||null;const p=id?DB.processes.find(x=>x.id===id):null;
+  document.getElementById('mdProcTitle').textContent=p?'Editar processo':'Novo processo seletivo';
+  document.getElementById('mdProcBody').innerHTML=`
+    <div class="fg full"><div class="fl">Título do processo *</div><input class="fi" id="pp-titulo" value="${esc(p?.titulo||'')}"></div>
+    <div class="fg full"><div class="fl">Empresa cliente *</div><select class="fi" id="pp-client"><option value="">Selecione...</option>${DB.clients.map(cl=>`<option value="${cl.id}"${p?.cliente===cl.id?' selected':''}>${esc(cl.nome)}</option>`).join('')}</select></div>
+    <div class="fg full"><div class="fl">Descritivo de vaga</div><select class="fi" id="pp-job"><option value="">Sem descritivo vinculado</option>${DB.jobs.map(j=>`<option value="${j.id}"${p?.job===j.id?' selected':''}>${esc(j.titulo)}</option>`).join('')}</select></div>
+    <div class="fg"><div class="fl">Recrutador(a)</div><input class="fi" id="pp-rec" value="${esc(p?.recrutador||'')}"></div>
+    <div class="fg"><div class="fl">Data de início</div><input class="fi" type="date" id="pp-inicio" value="${p?.inicio||''}"></div>
+    <div class="fg"><div class="fl">Prazo alvo (SLA)</div><input class="fi" type="date" id="pp-prazo" value="${p?.prazo||''}"></div>
+    <div class="fg"><div class="fl">Status</div><select class="fi" id="pp-status"><option${(!p||p.status==='aberta')?' selected':''} value="aberta">Aberta</option><option${p?.status==='pausada'?' selected':''} value="pausada">Pausada</option><option${p?.status==='cancelada'?' selected':''} value="cancelada">Cancelada</option><option${p?.status==='encerrada'?' selected':''} value="encerrada">Encerrada</option></select></div>
+    <div class="fg full"><div class="fl">Observações</div><textarea class="fi" id="pp-obs">${esc(p?.obs||'')}</textarea></div>`;
+  openModal('mdProcess');
+}
+async function saveProcess(){
+  const titulo=document.getElementById('pp-titulo').value.trim();const cliente=document.getElementById('pp-client').value;
+  if(!titulo||!cliente){alert('Título e cliente são obrigatórios.');return;}
+  const d={titulo,cliente,job:document.getElementById('pp-job').value,recrutador:document.getElementById('pp-rec').value.trim(),inicio:document.getElementById('pp-inicio').value,prazo:document.getElementById('pp-prazo').value,status:document.getElementById('pp-status').value,obs:document.getElementById('pp-obs').value.trim()};
+  if(editProcId){const i=DB.processes.findIndex(x=>x.id===editProcId);if(i>=0)DB.processes[i]={...DB.processes[i],...d};toast('Processo atualizado ✓');}
+  else{DB.processes.push({id:uid(),...d});toast('Processo criado ✓');}
+  await saveDB();closeModal('mdProcess');renderPage(currentPage);
+}
+function openProcPanel(id){
+  const p=DB.processes.find(x=>x.id===id);if(!p)return;
+  const cl=DB.clients.find(x=>x.id===p.cliente);const job=DB.jobs.find(x=>x.id===p.job);
+  const cands=DB.candidates.filter(c=>c.processo===id);const byStage=s=>cands.filter(c=>c.etapa===s).length;
+  const sla=slaInfo(p);const stKey=p.status==='aberta'?'aberta':p.status==='pausada'?'pausada':p.status==='cancelada'?'cancelada':'encerrada';
+  const ranked=cands.filter(c=>c.aderencia).sort((a,b)=>(b.aderencia?.nota||0)-(a.aderencia?.nota||0));
+  const panel=document.getElementById('sidePanel');
+  panel.innerHTML=`
+    <div class="panel-top"><div class="panel-name">${esc(p.titulo)}</div><div class="panel-sub">${esc(cl?.nome||'—')} · <span class="badge b-${stKey}">${p.status}</span></div></div>
+    <div class="panel-body">
+      <div class="panel-sec"><div class="ps-title">Detalhes</div>
+        ${[['Empresa',cl?.nome||'—'],['Recrutador',p.recrutador||'—'],['Início',p.inicio||'—'],['Prazo SLA',p.prazo||'—'],['SLA restante',sla.label],['Descritivo',job?.titulo||'Não vinculado'],['Obs',p.obs||'—']].map(([k,v])=>`<div class="prow"><span class="pk">${k}</span><span class="pv ${k==='SLA restante'?sla.cls:''}">${esc(v)}</span></div>`).join('')}
+      </div>
+      <div class="panel-sec"><div class="ps-title">Ação rápida de status</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-sm ${p.status==='aberta'?'btn-green':'btn-outline'}" onclick="setProcStatus('${id}','aberta')">Aberta</button>
+          <button class="btn btn-sm ${p.status==='pausada'?'btn-amber':'btn-outline'}" onclick="setProcStatus('${id}','pausada')">Pausar</button>
+          <button class="btn btn-sm ${p.status==='cancelada'?'btn-danger':'btn-outline'}" onclick="setProcStatus('${id}','cancelada')">Cancelar</button>
+          <button class="btn btn-sm btn-outline" onclick="setProcStatus('${id}','encerrada')">Encerrar</button>
+        </div>
+      </div>
+      <div class="panel-sec"><div class="ps-title">Pipeline (${cands.length} candidatos)</div>
+        ${STAGES.map(s=>{const n=byStage(s);const sk=SK[s];return`<div class="prow"><span class="pk"><span class="badge ${SBK[sk]||''}">${s}</span></span><span class="pv" style="font-family:'DM Mono',monospace">${n}</span></div>`;}).join('')}
+      </div>
+      ${ranked.length?`<div class="panel-sec"><div class="ps-title">Ranking de aderência IA</div>
+        ${ranked.map((cd,idx)=>{const adh=cd.aderencia;const barColor=adh.nota>=70?'var(--green)':adh.nota>=50?'var(--amber)':'var(--red)';return`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F0F4F8">
+          <div style="font-size:11px;font-weight:700;color:var(--gray-dk);width:16px">${idx+1}º</div>
+          <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(cd.nome)}</div>
+          <div class="adh-bar"><div class="adh-fill" style="width:${adh.nota}%;background:${barColor}"></div></div></div>
+          <div style="font-size:12px;font-weight:700;color:${barColor};min-width:36px;text-align:right">${adh.nota}%</div>
+        </div>`;}).join('')}
+      </div>`:''}
+      ${job?`<div class="panel-sec"><div class="ps-title">Link de candidatura</div>
+        <div class="link-box"><i class="ti ti-link" style="font-size:14px;color:var(--blue)"></i><span class="link-url">${makeApplyLink(job.id)}</span><button class="btn btn-teal btn-xs" onclick="copyLink('${job.id}')"><i class="ti ti-copy"></i>Copiar</button></div>
+      </div>`:''}
+    </div>
+    <div class="panel-ft"><button class="btn btn-outline btn-sm" style="flex:1" onclick="closePanel()">Fechar</button><button class="btn btn-outline btn-sm" onclick="openProcModal('${id}');closePanel()">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteProc('${id}')">Excluir</button></div>`;
+  openPanel();
+}
+async function setProcStatus(id,status){const i=DB.processes.findIndex(x=>x.id===id);if(i<0)return;DB.processes[i].status=status;await saveDB();renderPage(currentPage);openProcPanel(id);toast(`Status: ${status} ✓`);}
+async function deleteProc(id){if(!confirm('Excluir este processo?'))return;DB.processes=DB.processes.filter(x=>x.id!==id);await saveDB();closePanel();renderPage(currentPage);toast('Processo removido');}
+
+// ── Jobs ──────────────────────────────────────────────────────────
+function renderJobs(c){
+  document.getElementById('pgActions').innerHTML=`<button class="btn btn-primary btn-sm" onclick="openJobModal()"><i class="ti ti-plus"></i>Novo descritivo</button>`;
+  c.innerHTML=`<div class="tbl-wrap"><table>
+    <thead><tr><th>Título</th><th>Empresa</th><th>Tipo</th><th>Status</th><th>Candidatos</th><th>Ações</th></tr></thead>
+    <tbody>${DB.jobs.map(j=>{
+      const cl=DB.clients.find(x=>x.id===j.cliente);
+      const cands=DB.candidates.filter(c=>{const proc=DB.processes.find(p=>p.id===c.processo);return proc?.job===j.id;});
+      const tipoColor=j.tipo==='Médica'?['var(--blue-pal)','var(--blue)']:j.tipo==='Especialista'?['var(--teal-pal)','var(--teal)']:j.tipo==='Estratégica'?['var(--purple-lt)','var(--purple)']:['var(--gray-mid)','var(--gray-dk)'];
+      return`<tr><td class="td-name">${esc(j.titulo)}</td><td style="color:var(--gray-dk)">${esc(cl?.nome||'—')}</td><td><span class="badge" style="background:${tipoColor[0]};color:${tipoColor[1]}">${j.tipo}</span></td><td><span class="badge b-${j.status==='aberta'?'aberta':'encerrada'}">${j.status}</span></td><td style="font-family:'DM Mono',monospace;font-size:12px">${cands.length}</td>
+      <td><div style="display:flex;gap:4px"><button class="btn btn-outline btn-xs" onclick="openJobPanel('${j.id}')">Ver</button><button class="btn btn-outline btn-xs" onclick="openJobModal('${j.id}')">Editar</button><button class="btn btn-teal btn-xs" onclick="copyLink('${j.id}')"><i class="ti ti-link"></i>Link</button><button class="btn btn-danger btn-xs" onclick="deleteJob('${j.id}')">✕</button></div></td></tr>`;
+    }).join('')||'<tr><td colspan="6" class="empty-state"><i class="ti ti-file-description"></i>Nenhum descritivo</td></tr>'}
+    </tbody></table></div>`;
+}
+let editJobId=null;
+function openJobModal(id){
+  editJobId=id||null;const j=id?DB.jobs.find(x=>x.id===id):null;
+  document.getElementById('mdJobTitle').textContent=j?'Editar descritivo':'Novo descritivo de vaga';
+  document.getElementById('mdJobBody').innerHTML=`
+    <div class="fg full"><div class="fl">Título da vaga *</div><input class="fi" id="jf-titulo" value="${esc(j?.titulo||'')}"></div>
+    <div class="fg full"><div class="fl">Empresa cliente</div><select class="fi" id="jf-client"><option value="">Nenhuma</option>${DB.clients.map(cl=>`<option value="${cl.id}"${j?.cliente===cl.id?' selected':''}>${esc(cl.nome)}</option>`).join('')}</select></div>
+    <div class="fg full"><div class="fl">Tipo de vaga</div><select class="fi" id="jf-tipo"><option${(!j||j.tipo==='Operacional')?' selected':''}>Operacional</option><option${j?.tipo==='Estratégica'?' selected':''}>Estratégica</option><option${j?.tipo==='Especialista'?' selected':''}>Especialista</option><option${j?.tipo==='Médica'?' selected':''}>Médica</option></select></div>
+    <div class="fg full"><div class="fl">Status</div><select class="fi" id="jf-status"><option${(!j||j.status==='aberta')?' selected':''} value="aberta">Aberta</option><option${j?.status==='encerrada'?' selected':''} value="encerrada">Encerrada</option></select></div>
+    <div class="fg full">
+      <div class="fl" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Descritivo completo da vaga *</span>
+        <button type="button" class="btn btn-teal btn-xs" id="btnGerarIA" onclick="gerarDescritivo()"><i class="ti ti-cpu"></i>Gerar com IA</button>
+      </div>
+      <div id="jf-ia-status" style="font-size:11px;color:var(--blue);margin-bottom:4px;min-height:16px"></div>
+      <textarea class="fi" id="jf-desc" style="min-height:280px">${esc(j?.descricao||'')}</textarea>
+    </div>`;
+  openModal('mdJob');
+}
+async function gerarDescritivo(){
+  const titulo=document.getElementById('jf-titulo')?.value.trim();
+  const cliente=document.getElementById('jf-client')?.value;
+  const tipo=document.getElementById('jf-tipo')?.value;
+  if(!titulo){
+    alert('Preencha o título da vaga primeiro para a IA gerar o descritivo.');
+    document.getElementById('jf-titulo')?.focus();
+    return;
+  }
+  const cl=DB.clients.find(x=>x.id===cliente);
+  const btn=document.getElementById('btnGerarIA');
+  const status=document.getElementById('jf-ia-status');
+  const desc=document.getElementById('jf-desc');
+  btn.disabled=true;
+  btn.innerHTML='<div style="display:inline-flex;gap:3px;align-items:center"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div></div>';
+  status.textContent='Gerando descritivo com IA...';
+  status.style.color='var(--blue)';
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1200,
+        messages:[{role:'user',content:`Você é especialista em recrutamento e seleção na área da saúde no Brasil. Crie um descritivo completo e profissional para a vaga abaixo.
+
+Cargo: ${titulo}
+Tipo: ${tipo||'Não especificado'}
+${cl?'Empresa: '+cl.nome+' — '+cl.segmento+' — '+cl.cidade:''}
+
+Estruture o descritivo com estas seções:
+1. Sobre a vaga (2-3 linhas apresentando a oportunidade)
+2. Responsabilidades (5-7 tópicos com •)
+3. Requisitos (4-6 tópicos com •)
+4. Diferenciais (2-3 tópicos com •)
+5. Modelo de Remuneração/Escopo (vínculo, remuneração, local, horário)
+
+Use linguagem profissional e atrativa para candidatos da área da saúde. Não invente valores de salário específicos — use "A combinar" ou "Compatível com o mercado". Retorne APENAS o texto do descritivo, sem introdução ou explicação.`}]
+      })
+    });
+    const data=await resp.json();
+    const txt=data.content?.find(b=>b.type==='text')?.text||'';
+    if(txt){
+      desc.value=txt;
+      status.textContent='✓ Descritivo gerado! Revise e edite se necessário.';
+      status.style.color='var(--green)';
+    } else {
+      status.textContent='Erro ao gerar. Tente novamente.';
+      status.style.color='var(--red)';
+    }
+  }catch(e){
+    status.textContent='Erro de conexão. Tente novamente.';
+    status.style.color='var(--red)';
+  }finally{
+    btn.disabled=false;
+    btn.innerHTML='<i class="ti ti-cpu"></i>Gerar com IA';
+  }
+}
+
+async function saveJob(){
+  const titulo=document.getElementById('jf-titulo').value.trim();const descricao=document.getElementById('jf-desc').value.trim();
+  if(!titulo||!descricao){alert('Título e descritivo são obrigatórios.');return;}
+  const d={titulo,cliente:document.getElementById('jf-client').value,tipo:document.getElementById('jf-tipo').value,status:document.getElementById('jf-status').value,descricao};
+  if(editJobId){const i=DB.jobs.findIndex(x=>x.id===editJobId);if(i>=0)DB.jobs[i]={...DB.jobs[i],...d};toast('Descritivo atualizado ✓');}
+  else{DB.jobs.push({id:uid(),...d});toast('Descritivo criado ✓');}
+  await saveDB();closeModal('mdJob');renderPage(currentPage);
+}
+function openJobPanel(id){
+  const j=DB.jobs.find(x=>x.id===id);if(!j)return;
+  const cl=DB.clients.find(x=>x.id===j.cliente);
+  const panel=document.getElementById('sidePanel');
+  panel.innerHTML=`
+    <div class="panel-top"><div class="panel-name">${esc(j.titulo)}</div><div class="panel-sub">${esc(cl?.nome||'Sem empresa')} · ${j.tipo}</div></div>
+    <div class="panel-body">
+      <div class="panel-sec"><div class="ps-title">Descritivo da vaga</div><div class="jd-body">${esc(j.descricao)}</div></div>
+      <div class="panel-sec"><div class="ps-title">Link de candidatura</div>
+        <div class="link-box"><i class="ti ti-link" style="font-size:14px;color:var(--blue)"></i><span class="link-url">${makeApplyLink(j.id)}</span><button class="btn btn-teal btn-xs" onclick="copyLink('${j.id}')"><i class="ti ti-copy"></i>Copiar</button></div>
+        <div style="margin-top:10px"><button class="btn btn-purple btn-sm" onclick="previewApply('${j.id}')"><i class="ti ti-eye"></i>Ver página de candidatura</button></div>
+      </div>
+    </div>
+    <div class="panel-ft"><button class="btn btn-outline btn-sm" style="flex:1" onclick="closePanel()">Fechar</button><button class="btn btn-outline btn-sm" onclick="openJobModal('${j.id}');closePanel()">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteJob('${j.id}')">Excluir</button></div>`;
+  openPanel();
+}
+async function deleteJob(id){if(!confirm('Excluir este descritivo?'))return;DB.jobs=DB.jobs.filter(x=>x.id!==id);await saveDB();closePanel();renderPage(currentPage);toast('Descritivo removido');}
+
+// ── Apply ────────────────────────────────────────────────────────
+function renderApply(c){
+  c.innerHTML=`
+  <div class="card" style="margin-bottom:16px;border-left:4px solid var(--blue)">
+    <div style="font-size:13px;font-weight:600;margin-bottom:6px;color:var(--blue)">Como compartilhar o link com candidatos</div>
+    <div style="font-size:13px;color:var(--gray-dk);line-height:1.6">
+      1. Copie o link da vaga desejada<br>
+      2. Envie pelo WhatsApp, e-mail ou cole em anúncio<br>
+      3. O candidato abre o link, preenche o formulário e faz upload do currículo PDF<br>
+      4. A candidatura aparece automaticamente em <strong>Candidatos → Triagem</strong>
+    </div>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Vaga</th><th>Empresa</th><th>Tipo</th><th>Status</th><th>Link de candidatura</th><th>Ações</th></tr></thead>
+    <tbody>${DB.jobs.map(j=>{const cl=DB.clients.find(x=>x.id===j.cliente);const lnk=makeApplyLink(j.id);
+      return`<tr><td class="td-name">${esc(j.titulo)}</td><td style="color:var(--gray-dk)">${esc(cl?.nome||'—')}</td><td><span class="badge" style="background:var(--blue-pal);color:var(--blue)">${j.tipo}</span></td><td><span class="badge b-${j.status==='aberta'?'aberta':'encerrada'}">${j.status}</span></td><td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--blue)">${lnk.slice(0,55)}...</span></td>
+      <td><div style="display:flex;gap:5px"><button class="btn btn-teal btn-xs" onclick="copyLink('${j.id}')"><i class="ti ti-copy"></i>Copiar</button><button class="btn btn-purple btn-xs" onclick="previewApply('${j.id}')"><i class="ti ti-eye"></i>Prévia</button></div></td></tr>`;
+    }).join('')||'<tr><td colspan="6" class="empty-state"><i class="ti ti-link"></i>Nenhuma vaga cadastrada</td></tr>'}
+    </tbody></table></div>`;
+}
+
+// ── Apply page (candidato externo) ───────────────────────────────
+function makeApplyLink(jobId){const base=location.href.split('?')[0].split('#')[0].replace(/[^/]*$/,'candidatura.html');return`${base}?vaga=${jobId}`;}
+function copyLink(jobId){const lnk=makeApplyLink(jobId);navigator.clipboard.writeText(lnk).then(()=>toast('Link copiado ✓')).catch(()=>toast('Link: '+lnk));}
+function previewApply(jobId){
+  document.getElementById('mdApplyBody').innerHTML=`<div style="background:var(--gray);border-radius:var(--rs);padding:14px;margin-bottom:10px;font-size:13px;color:var(--gray-dk)">Esta é a prévia da página que o candidato vê ao abrir o link. Para testar o formulário completo, copie e abra o link no navegador.</div>
+  <div class="link-box"><i class="ti ti-link" style="color:var(--blue)"></i><span class="link-url">${makeApplyLink(jobId)}</span><button class="btn btn-teal btn-xs" onclick="copyLink('${jobId}')"><i class="ti ti-copy"></i>Copiar</button></div>
+  <div style="margin-top:12px"><button class="btn btn-primary btn-sm" onclick="closeModal('mdApply');showApplyPage('${jobId}')"><i class="ti ti-external-link"></i>Simular página do candidato</button></div>`;
+  openModal('mdApply');
+}
+function showApplyPage(jobId){
+  const j=DB.jobs.find(x=>x.id===jobId);
+  const cl=DB.clients.find(x=>x.id===j?.cliente);
+  document.getElementById('atsShell').style.display='none';
+  const ap=document.getElementById('applyPage');ap.classList.add('show');
+  const card=document.getElementById('applyCard');
+  card.innerHTML=`
+    <div style="display:flex;align-items:center;gap:9px;margin-bottom:20px">
+      <svg width="28" height="28" viewBox="0 0 80 80" fill="none"><circle cx="40" cy="32" r="22" stroke="#4A90D9" stroke-width="8" fill="none"/><circle cx="40" cy="32" r="9" fill="#4A90D9"/><rect x="31" y="46" width="18" height="12" rx="4" fill="#4A90D9"/></svg>
+      <span style="font-size:16px;font-weight:600;color:var(--navy)">Claves Health</span>
+    </div>
+    <div style="font-size:20px;font-weight:600;color:var(--dark);margin-bottom:4px">${esc(j?.titulo||'Vaga')}</div>
+    <div style="font-size:13px;color:var(--gray-dk);margin-bottom:16px">${esc(cl?.nome||'')}${cl?.cidade?' · '+esc(cl.cidade):''}</div>
+    ${j?.descricao?`<div style="background:var(--gray);border-radius:var(--rs);padding:14px;font-size:12px;line-height:1.65;max-height:160px;overflow-y:auto;white-space:pre-wrap;margin-bottom:20px">${esc(j.descricao)}</div>`:''}
+    <div style="font-size:12px;font-weight:600;margin-bottom:12px">Formulário de candidatura</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div style="grid-column:1/-1"><div style="font-size:12px;font-weight:500;margin-bottom:4px">Nome completo *</div><input class="fi" id="ap-nome" placeholder="Seu nome completo"></div>
+      <div><div style="font-size:12px;font-weight:500;margin-bottom:4px">CPF *</div><input class="fi" id="ap-cpf" placeholder="000.000.000-00" oninput="formatCPF(this)"></div>
+      <div><div style="font-size:12px;font-weight:500;margin-bottom:4px">Telefone *</div><input class="fi" id="ap-tel" placeholder="(00) 00000-0000"></div>
+      <div><div style="font-size:12px;font-weight:500;margin-bottom:4px">E-mail</div><input class="fi" id="ap-email" type="email" placeholder="seu@email.com"></div>
+      <div><div style="font-size:12px;font-weight:500;margin-bottom:4px">Especialidade / Cargo</div><input class="fi" id="ap-esp" placeholder="Ex: Ortopedista"></div>
+      <div><div style="font-size:12px;font-weight:500;margin-bottom:4px">CRM / CFM</div><input class="fi" id="ap-cfm" placeholder="Ex: 12345/DF"></div>
+      <div style="grid-column:1/-1"><div style="font-size:12px;font-weight:500;margin-bottom:4px">Cidade / Estado</div><input class="fi" id="ap-reg" placeholder="Ex: Brasília - DF"></div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px">Currículo *</div>
+      <div class="upload-zone" id="ap-dropzone" onclick="document.getElementById('ap-pdf').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleApplyDrop(event)" style="margin-bottom:8px">
+        <i class="ti ti-file-upload"></i>
+        <div class="upload-label">Clique ou arraste seu currículo em PDF</div>
+        <div class="upload-sub">PDF até 10MB — o texto será extraído automaticamente</div>
+        <div class="upload-success" id="ap-pdf-status"></div>
+      </div>
+      <input type="file" id="ap-pdf" accept=".pdf" style="display:none" onchange="handleApplyPDF(event)">
+      <div id="ap-curriculo-preview" style="display:none;margin-top:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--gray-dk);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Texto extraído do currículo</div>
+        <textarea class="fi" id="ap-curriculo" style="min-height:160px;font-size:11px;line-height:1.6;color:var(--dark)" placeholder="Texto do currículo aparecerá aqui após o upload..."></textarea>
+        <div style="font-size:10px;color:var(--gray-dk);margin-top:3px">Você pode editar o texto se necessário antes de enviar.</div>
+      </div>
+      <div style="margin-top:6px">
+        <div style="font-size:11px;font-weight:600;color:var(--gray-dk);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Ou cole o texto diretamente</div>
+        <textarea class="fi" id="ap-curriculo-manual" style="min-height:80px;font-size:11px;line-height:1.6" placeholder="Caso prefira, cole aqui o texto do currículo manualmente (Ctrl+A → Ctrl+C → Ctrl+V do Word/LinkedIn)..."></textarea>
+      </div>
+    </div>
+    <div style="margin-bottom:14px"><div style="font-size:12px;font-weight:500;margin-bottom:4px">Mensagem / Apresentação</div><textarea class="fi" id="ap-obs" placeholder="Conte brevemente sobre sua trajetória e motivação para esta vaga..." style="min-height:70px"></textarea></div>
+    <button class="btn btn-primary" style="width:100%;padding:11px" id="ap-submit" onclick="submitApply('${jobId}')"><i class="ti ti-send"></i>Enviar candidatura</button>
+    <div id="ap-error" style="margin-top:8px;font-size:12px;color:var(--red)"></div>
+    <button class="btn btn-outline btn-sm" style="width:100%;margin-top:10px" onclick="document.getElementById('applyPage').classList.remove('show');document.getElementById('atsShell').style.display='flex';history.replaceState(null,'',location.pathname)"><i class="ti ti-arrow-left"></i>Voltar ao ATS</button>`;
+}
+let applyPDFText='';
+async function handleApplyPDF(e){
+  const file=e.target.files[0];if(!file)return;
+  const status=document.getElementById('ap-pdf-status');
+  status.textContent='Extraindo texto do PDF...';status.style.color='var(--amber)';
+  try{
+    applyPDFText=await extractPDFText(file);
+    status.textContent=`✓ Texto extraído de "${file.name}"`;
+    status.style.color='var(--green)';
+    // Show preview
+    const preview=document.getElementById('ap-curriculo-preview');
+    const textarea=document.getElementById('ap-curriculo');
+    if(preview&&textarea){
+      textarea.value=applyPDFText;
+      preview.style.display='block';
+    }
+  }catch(err){status.textContent='Erro ao ler PDF. Tente colar o texto manualmente.';status.style.color='var(--red)';}
+}
+async function handleApplyDrop(e){
+  e.preventDefault();document.getElementById('ap-dropzone').classList.remove('drag');
+  const file=e.dataTransfer.files[0];if(!file||file.type!=='application/pdf')return;
+  await handleApplyPDF({target:{files:[file]}});
+}
+function formatCPF(el){let v=el.value.replace(/\D/g,'').slice(0,11);if(v.length>9)v=v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/,'$1.$2.$3-$4');else if(v.length>6)v=v.replace(/(\d{3})(\d{3})(\d{1,3})/,'$1.$2.$3');else if(v.length>3)v=v.replace(/(\d{3})(\d{1,3})/,'$1.$2');el.value=v;}
+async function submitApply(jobId){
+  const nome=document.getElementById('ap-nome')?.value.trim();
+  const cpf=document.getElementById('ap-cpf')?.value.trim();
+  const tel=document.getElementById('ap-tel')?.value.trim();
+  const err=document.getElementById('ap-error');
+  // Get CV text from PDF extraction, edited preview, or manual input
+  const curriculoFromPDF=document.getElementById('ap-curriculo')?.value.trim()||'';
+  const curriculoManual=document.getElementById('ap-curriculo-manual')?.value.trim()||'';
+  const curriculo=curriculoFromPDF||curriculoManual||applyPDFText||'';
+  if(!nome){err.textContent='Nome completo é obrigatório.';return;}
+  if(!cpf){err.textContent='CPF é obrigatório.';return;}
+  if(!tel){err.textContent='Telefone é obrigatório.';return;}
+  if(curriculo.length<50){err.textContent='Por favor faça upload do PDF ou cole o texto do currículo.';return;}
+  err.textContent='';
+  const btn=document.getElementById('ap-submit');btn.disabled=true;btn.innerHTML='<i class="ti ti-loader"></i> Enviando...';
+  const j=DB.jobs.find(x=>x.id===jobId);
+  const proc=DB.processes.find(p=>p.job===jobId&&p.status==='aberta');
+  const newCand={id:uid(),nome,cpf,tipo:j?.tipo||'Médico',especialidade:document.getElementById('ap-esp')?.value.trim()||'',cfm:document.getElementById('ap-cfm')?.value.trim()||'',rqe:'',regiao:document.getElementById('ap-reg')?.value.trim()||'',telefone:tel,email:document.getElementById('ap-email')?.value.trim()||'',recrutador:'',processo:proc?.id||'',etapa:'Triagem',pontuacao:0,curriculo:'',curriculoTexto:curriculo,aderencia:null,obs:document.getElementById('ap-obs')?.value.trim()||''};
+  DB.candidates.push(newCand);
+  await saveDB();
+  applyPDFText='';
+  document.getElementById('applyCard').innerHTML=`
+    <div style="text-align:center;padding:32px 20px">
+      <i class="ti ti-circle-check" style="font-size:48px;color:var(--green);display:block;margin-bottom:16px"></i>
+      <div style="font-size:18px;font-weight:600;color:var(--dark);margin-bottom:8px">Candidatura enviada!</div>
+      <div style="font-size:14px;color:var(--gray-dk);line-height:1.6">Obrigado, <strong>${esc(nome)}</strong>.<br>Sua candidatura foi registrada com sucesso.<br>Nossa equipe analisará seu perfil em breve.</div>
+    </div>`;
+}
+
+// ── Routing ──────────────────────────────────────────────────────
+function getApplyJobId(){
+  const params=new URLSearchParams(location.search);
+  if(params.get('vaga')) return params.get('vaga');
+  if(location.hash.startsWith('#apply-')) return location.hash.replace('#apply-','');
+  return null;
+}
+function checkHash(){
+  const jobId=getApplyJobId();
+  if(jobId){
+    const j=DB.jobs.find(x=>x.id===jobId);
+    if(j){
+      const lo=document.getElementById('loginOverlay');if(lo)lo.classList.remove('show');
+      const sh=document.getElementById('atsShell');if(sh)sh.style.display='none';
+      showApplyPage(jobId);
+      return;
+    }
+  }
+  document.getElementById('applyPage').classList.remove('show');
+  document.getElementById('atsShell').style.display='flex';
+}
+window.addEventListener('hashchange',checkHash);
+window.addEventListener('popstate',checkHash);
+
+// ── Helpers ──────────────────────────────────────────────────────
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+function openPanel(){document.getElementById('panelBg').classList.add('open');document.getElementById('sidePanel').style.display='flex'}
+function closePanel(){document.getElementById('panelBg').classList.remove('open');document.getElementById('sidePanel').style.display='none'}
+function closeSetup(){document.getElementById('setupOverlay').classList.remove('show')}
+
+function exportCSV(){
+  const cols=['Nome','CPF','Tipo','Especialidade','CFM','RQE','Região','Telefone','Email','Processo','Etapa','Recrutador','Aderência%','Pontuação','Observações'];
+  const rows=DB.candidates.map(c=>{const proc=DB.processes.find(p=>p.id===c.processo);return[c.nome,c.cpf,c.tipo,c.especialidade,c.cfm,c.rqe,c.regiao,c.telefone,c.email,proc?.titulo||'',c.etapa,c.recrutador,c.aderencia?.nota||'',c.pontuacao,c.obs].map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',');});
+  const csv=[cols.join(','),...rows].join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));a.download=`claves_ats_${new Date().toISOString().slice(0,10)}.csv`;a.click();toast('CSV exportado ✓');
+}
+
+// ── Init ─────────────────────────────────────────────────────────
+(async()=>{
+  const isLocal = location.protocol === 'file:';
+  const applyJobId = (new URLSearchParams(location.search)).get('vaga') || (location.hash.startsWith('#apply-')?location.hash.replace('#apply-',''):null);
+  const isApplyLink = !!applyJobId;
+
+  // Candidato externo — mostra formulário SEM login, com prioridade absoluta
+  if(isApplyLink){
+    const jobId = applyJobId;
+
+    // Oculta tudo imediatamente
+    const lo=document.getElementById('loginOverlay');if(lo)lo.classList.remove('show');
+    const sh=document.getElementById('atsShell');if(sh)sh.style.display='none';
+    const ap=document.getElementById('applyPage');if(ap)ap.classList.add('show');
+
+    // Mostra loading enquanto carrega dados
+    const card=document.getElementById('applyCard');
+    if(card)card.innerHTML=`<div style="text-align:center;padding:48px 20px">
+      <div style="width:32px;height:32px;border:3px solid #E0E4EA;border-top-color:#1A5C96;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px"></div>
+      <div style="font-size:14px;color:#6b7280">Carregando vaga...</div>
+    </div>`;
+
+    const showPage = async()=>{
+      if(window._fbLoad){
+        try{const r=await window._fbLoad();if(r&&r.jobs?.length)DB=r;}catch(e){}
+      }
+      if(!DB.jobs?.length) loadLocal();
+      showApplyPage(jobId);
+    };
+
+    if(window._firebaseReady){
+      await showPage();
+    } else {
+      // Firebase ainda carregando — aguarda até 4s
+      let done=false;
+      window._onFirebaseReady=async()=>{ if(!done){done=true;await showPage();} };
+      setTimeout(async()=>{ if(!done){done=true;await showPage();} }, 4000);
+    }
+    return;
+  }
+
+  // Arquivo local — modo desenvolvimento sem login
+  if(isLocal){
+    _setSyncStatus('local');
+    loadLocal();
+    if(!DB.clients?.length){ seedDB(); saveLocal(); }
+    updateNavCounts();
+    renderPage('dash');
+    return;
+  }
+
+  // Online normal — exige login da equipe
+  showLogin();
+})();
+
+const GAS_URL='https://script.google.com/macros/s/AKfycbzeu6XCUDxmwgEo9TyFZ0kMpb8ZUW_7DTKEAHhxvds5dREEsrvywx6m8SpL8wVIn94U/exec';
+
+// ── Big Five ──────────────────────────────────────────────────────
+function makeBFLink(candId){
+  const base=location.href.split('?')[0].split('#')[0].replace(/[^/]*$/,'avaliacao.html');
+  return`${base}?cand=${candId}`;
+}
+function copyBFLink(candId){
+  const lnk=makeBFLink(candId);
+  navigator.clipboard.writeText(lnk).then(()=>toast('Link Big Five copiado ✓')).catch(()=>prompt('Copie o link:',lnk));
+}
+function sendBFWhatsApp(candId){
+  const cand=DB.candidates.find(x=>x.id===candId);
+  if(!cand?.telefone){toast('Cadastre o telefone do candidato primeiro.');return;}
+  const lnk=makeBFLink(candId);
+  const msg=encodeURIComponent(`Olá, ${cand.nome}! Tudo bem? 😊
+
+Como parte do nosso processo seletivo, pedimos que realize uma breve avaliação comportamental. Leva apenas ~10 minutos e não há respostas certas ou erradas.
+
+👉 ${lnk}
+
+Qualquer dúvida, estou à disposição!`);
+  const tel=cand.telefone.replace(/\D/g,'');
+  window.open(`https://wa.me/55${tel}?text=${msg}`,'_blank');
+}
+async function gerarRelatorioBF(candId){
+  const btn=document.getElementById('btnBFReport-'+candId);
+  const status=document.getElementById('bf-status-'+candId);
+  const cand=DB.candidates.find(x=>x.id===candId);
+  if(!cand?.bigfive)return;
+  const proc=DB.processes.find(p=>p.id===cand.processo);
+  const job=proc?DB.jobs.find(j=>j.id===proc.job):null;
+  if(btn){btn.disabled=true;btn.textContent='⏳ Gerando relatório...';}
+  if(status){status.textContent='Analisando perfil comportamental...';status.style.color='var(--blue)';}
+  const lv=v=>v>=70?'Alto':v>=40?'Moderado':'Baixo';
+  const o=cand.bigfive;
+  try{
+    const resp=await fetch(GAS_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        messages:[{role:'user',content:`Você é especialista em psicologia organizacional e recrutamento na área da saúde. Analise o perfil Big Five e gere um relatório comportamental completo.
+
+CANDIDATO: ${cand.nome}
+CARGO: ${cand.especialidade||'Não informado'}
+${proc?'PROCESSO: '+proc.titulo:''}
+${job?'VAGA: '+job.titulo:''}
+
+RESULTADOS BIG FIVE:
+• Abertura: ${o.O}% — ${lv(o.O)}
+• Conscienciosidade: ${o.C}% — ${lv(o.C)}
+• Extroversão: ${o.E}% — ${lv(o.E)}
+• Amabilidade: ${o.A}% — ${lv(o.A)}
+• Neuroticismo: ${o.N}% — ${lv(o.N)}
+
+Gere o relatório com estas seções (use ### para títulos):
+
+### Perfil Comportamental Geral
+### Pontos Fortes
+### Pontos de Atenção
+### Fit para o Setor de Saúde
+### Sugestões de Desenvolvimento
+### Plano de Ação (curto/médio prazo)
+### Recomendação ao Recrutador
+
+Linguagem profissional, objetiva e construtiva.`}]
+      })
+    });
+    const data=await resp.json();
+    const txt=data.content?.find(b=>b.type==='text')?.text||'';
+    if(txt){
+      const i=DB.candidates.findIndex(x=>x.id===candId);
+      if(i>=0){DB.candidates[i].bigfiveRelatorio=txt;await saveDB();}
+      toast('Relatório gerado ✓');
+      openCandPanel(candId);
+    }else{
+      if(status){status.textContent='Erro ao gerar. Tente novamente.';status.style.color='red';}
+      if(btn){btn.disabled=false;btn.textContent='🤖 Gerar relatório com IA';}
+    }
+  }catch(e){
+    if(status){status.textContent='Erro de conexão.';status.style.color='red';}
+    if(btn){btn.disabled=false;btn.textContent='🤖 Gerar relatório com IA';}
+  }
+}
+</script>
+</body>
+</html>
