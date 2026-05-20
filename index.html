@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claves Health – Pareceres Técnicos</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0b1d4e;--navy2:#142766;--blue:#1d5fd4;--blue2:#2c6fad;
+  --blue-lt:#eef5fc;--gray:#f0f4f8;--gray2:#e2e8f0;--gray3:#94a3b8;
+  --dark:#1e293b;--white:#fff;
+  --green:#166534;--green-lt:#dcfce7;--amber:#92400e;--amber-lt:#fef3c7;
+  --red:#991b1b;--red-lt:#fee2e2;--purple:#5b21b6;--purple-lt:#ede9fe;
+  --r:12px;--rs:8px;--shadow:0 1px 4px rgba(0,0,0,.08);--shadow-md:0 4px 16px rgba(0,0,0,.12)
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--gray);color:var(--dark);min-height:100vh;font-size:14px}
+
+/* AUTH */
+.auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%)}
+.auth-card{background:#fff;border-radius:20px;padding:40px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:28px;justify-content:center}
+.auth-mark{width:44px;height:44px;background:var(--navy);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:17px}
+.auth-name{font-size:21px;font-weight:700;color:var(--navy)}
+.auth-err{background:var(--red-lt);color:var(--red);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;display:none}
+.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.fg label{font-size:12px;font-weight:600;color:#374151}
+.fg input,.fg select,.fg textarea{padding:10px 13px;border:1.5px solid var(--gray2);border-radius:var(--rs);font-size:13px;font-family:inherit;outline:none;transition:.15s;color:var(--dark)}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--blue)}
+.fg textarea{resize:vertical;line-height:1.6}
+.pw-wrap{position:relative}
+.pw-wrap input{width:100%;padding-right:40px}
+.pw-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--gray3)}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:.15s;white-space:nowrap}
+.btn-primary{background:var(--blue);color:#fff}.btn-primary:hover{background:var(--blue2)}
+.btn-navy{background:var(--navy);color:#fff}.btn-navy:hover{background:var(--navy2)}
+.btn-outline{background:#fff;color:var(--blue);border:1.5px solid var(--blue)}.btn-outline:hover{background:var(--blue-lt)}
+.btn-ghost{background:transparent;color:var(--gray3);border:1.5px solid var(--gray2)}.btn-ghost:hover{background:var(--gray)}
+.btn-danger{background:var(--red-lt);color:var(--red)}.btn-danger:hover{background:#fecaca}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-full{width:100%;justify-content:center;padding:12px}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* LAYOUT */
+.app{display:none}.app.visible{display:block}
+.topbar{background:var(--navy);display:flex;align-items:center;gap:12px;padding:0 28px;height:56px;position:sticky;top:0;z-index:200}
+.tl-mark{width:32px;height:32px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0}
+.tl-name{color:#fff;font-size:15px;font-weight:600}
+.tl-sep{width:1px;height:20px;background:rgba(255,255,255,.2);margin:0 4px}
+.tl-sub{color:rgba(255,255,255,.5);font-size:12px}
+.tl-badge{background:rgba(255,255,255,.15);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.tb-user{color:rgba(255,255,255,.6);font-size:12px}
+.tb-btn{background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.8);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;transition:.15s}
+.tb-btn:hover,.tb-btn.active{background:rgba(255,255,255,.2);color:#fff;font-weight:600}
+
+/* PAGES */
+.page{display:none;padding:28px;max-width:1100px;margin:0 auto}.page.active{display:block}
+
+/* DASHBOARD */
+.ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;gap:16px;flex-wrap:wrap}
+.ph h1{font-size:22px;font-weight:700;color:var(--navy)}
+.ph p{font-size:13px;color:var(--gray3);margin-top:2px}
+.ph-actions{display:flex;gap:8px;flex-wrap:wrap}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:24px}
+.stat{background:#fff;border-radius:var(--r);padding:18px;border:1px solid var(--gray2);box-shadow:var(--shadow)}
+.stat .n{font-size:28px;font-weight:700;color:var(--navy)}
+.stat .l{font-size:12px;color:var(--gray3);margin-top:2px}
+
+/* TABLE */
+.table-wrap{background:#fff;border-radius:var(--r);border:1px solid var(--gray2);overflow:hidden;box-shadow:var(--shadow)}
+.table-toolbar{display:flex;gap:10px;padding:14px 16px;border-bottom:1px solid var(--gray2);flex-wrap:wrap;align-items:center}
+.search-wrap{display:flex;align-items:center;gap:8px;background:var(--gray);border-radius:8px;padding:7px 12px;flex:1;min-width:180px}
+.search-wrap input{background:none;border:none;outline:none;font-size:13px;font-family:inherit;width:100%;color:var(--dark)}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--gray3);text-transform:uppercase;letter-spacing:.5px;background:#f8fafc;border-bottom:1px solid var(--gray2)}
+td{padding:11px 14px;border-bottom:1px solid #f1f5f9;font-size:13px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafbff}
+.td-name{font-weight:600;color:var(--navy)}
+.td-sub{font-size:11px;color:var(--gray3);margin-top:1px}
+.tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.tag-blue{background:var(--blue-lt);color:var(--blue2)}
+.tag-green{background:var(--green-lt);color:var(--green)}
+.tag-amber{background:var(--amber-lt);color:var(--amber)}
+.tag-gray{background:var(--gray2);color:#475569}
+.tag-red{background:var(--red-lt);color:var(--red)}
+.empty{text-align:center;padding:52px 20px;color:var(--gray3)}
+.empty h3{font-size:15px;font-weight:600;color:#64748b;margin-bottom:6px}
+
+/* PARECER FORM */
+.form-wrap{max-width:820px;margin:0 auto}
+.sec-card{background:#fff;border-radius:var(--r);padding:24px;margin-bottom:18px;border:1px solid var(--gray2);box-shadow:var(--shadow)}
+.sec-card h2{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--blue-lt);display:flex;align-items:center;gap:8px}
+.sec-num{background:var(--blue);color:#fff;width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:13px}
+.full{grid-column:1/-1}
+.alert{padding:11px 15px;border-radius:8px;font-size:13px;margin-bottom:14px;line-height:1.5}
+.alert-info{background:var(--blue-lt);color:#1d4ed8;border-left:3px solid var(--blue)}
+.alert-warn{background:var(--amber-lt);color:var(--amber);border-left:3px solid #d97706}
+.alert-success{background:var(--green-lt);color:var(--green);border-left:3px solid #059669}
+
+/* ADHERENCE */
+.adh-table{width:100%;border-collapse:collapse;font-size:13px}
+.adh-table th{text-align:left;padding:8px 10px;background:#f8fafc;color:var(--gray3);font-size:11px;font-weight:700;border-bottom:1px solid var(--gray2)}
+.adh-table td{padding:7px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+.adh-table tr:last-child td{border-bottom:none}
+.adh-table input[type=text]{width:100%;border:1px solid var(--gray2);border-radius:6px;padding:5px 8px;font-size:13px;font-family:inherit;outline:none}
+.adh-table input[type=text]:focus{border-color:var(--blue)}
+.adh-table select{border:1px solid var(--gray2);border-radius:6px;padding:4px 6px;font-size:13px;font-family:inherit}
+.add-row{color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;padding:8px 10px;display:inline-flex;align-items:center;gap:4px}
+.add-row:hover{text-decoration:underline}
+
+/* OCEAN */
+.ocean-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.oc{border-radius:10px;padding:13px;border:1.5px solid}
+.oc-O{border-color:#8b5cf6;background:#f5f3ff}
+.oc-C{border-color:#1d5fd4;background:#eff6ff}
+.oc-E{border-color:#d97706;background:#fffbeb}
+.oc-A{border-color:#059669;background:#ecfdf5}
+.oc-N{border-color:#dc2626;background:#fef2f2}
+.oc-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.oc-pct{font-size:22px;font-weight:700}
+.oc-bar{height:6px;background:rgba(0,0,0,.1);border-radius:100px;overflow:hidden;margin:5px 0 3px}
+.oc-bar-fill{height:100%;border-radius:100px}
+.oc-lv{font-size:10px;font-weight:700}
+.oc-O .oc-lbl,.oc-O .oc-pct,.oc-O .oc-lv{color:#7c3aed}
+.oc-C .oc-lbl,.oc-C .oc-pct,.oc-C .oc-lv{color:#1d4ed8}
+.oc-E .oc-lbl,.oc-E .oc-pct,.oc-E .oc-lv{color:#b45309}
+.oc-A .oc-lbl,.oc-A .oc-pct,.oc-A .oc-lv{color:#065f46}
+.oc-N .oc-lbl,.oc-N .oc-pct,.oc-N .oc-lv{color:#991b1b}
+.oc-O .oc-bar-fill{background:#8b5cf6}
+.oc-C .oc-bar-fill{background:#1d5fd4}
+.oc-E .oc-bar-fill{background:#d97706}
+.oc-A .oc-bar-fill{background:#059669}
+.oc-N .oc-bar-fill{background:#dc2626}
+.oc-slider{width:100%;margin-top:8px;accent-color:var(--blue)}
+
+/* REC */
+.rec-box{padding:13px 16px;border-radius:9px;border:2px solid;margin-top:8px}
+.rec-alto{border-color:#059669;background:#ecfdf5}
+.rec-moderado{border-color:#d97706;background:#fffbeb}
+.rec-reservas{border-color:#dc2626;background:#fef2f2}
+.rec-alto .rec-lbl{color:#065f46}
+.rec-moderado .rec-lbl{color:#b45309}
+.rec-reservas .rec-lbl{color:#991b1b}
+.rec-lbl{font-weight:700;font-size:13px}
+
+/* CV UPLOAD */
+.upload-area{border:2px dashed var(--gray2);border-radius:10px;padding:22px;text-align:center;cursor:pointer;transition:.2s;position:relative}
+.upload-area:hover{border-color:var(--blue);background:var(--blue-lt)}
+.upload-area input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.file-prev{background:var(--gray);border-radius:8px;padding:9px 14px;display:flex;align-items:center;gap:10px;margin-top:10px;border:1px solid var(--gray2)}
+.file-prev span{font-size:13px;flex:1}
+.file-prev button{background:none;border:none;color:var(--red);cursor:pointer;font-size:16px}
+
+/* BIG FIVE */
+.q-block{background:#fff;border-radius:12px;padding:18px;margin-bottom:12px;border:1px solid var(--gray2);box-shadow:var(--shadow)}
+.q-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px}
+.q-text{font-size:14px;font-weight:500;margin-bottom:12px;line-height:1.5}
+.likert{display:flex;gap:6px}
+.lo{flex:1}
+.lo input{display:none}
+.lo label{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border:1.5px solid var(--gray2);border-radius:8px;cursor:pointer;font-size:9px;color:var(--gray3);text-align:center;transition:.15s}
+.lo label .ln{font-size:15px;font-weight:700;color:#374151}
+.lo input:checked+label{border-color:var(--blue);background:var(--blue-lt)}
+.lo input:checked+label .ln{color:var(--blue)}
+.likert-ends{display:flex;justify-content:space-between;font-size:10px;color:var(--gray3);margin-top:4px}
+.prog-strip{background:#fff;border-radius:var(--r);padding:14px 20px;margin-bottom:14px;border:1px solid var(--gray2)}
+.prog-track{background:var(--gray2);border-radius:100px;height:6px;overflow:hidden;margin-top:6px}
+.prog-fill{background:linear-gradient(90deg,var(--blue),#8b5cf6);height:100%;border-radius:100px;transition:width .4s}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;align-items:center;justify-content:center;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:16px;padding:28px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal h3{font-size:17px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.modal p{font-size:13px;color:var(--gray3);margin-bottom:18px;line-height:1.6}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+/* PDF */
+#pdf-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;overflow-y:auto;padding:30px 16px}
+#pdf-overlay.open{display:block}
+#pdf-wrap{max-width:800px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.pdf-bar{background:var(--navy);padding:14px 22px;display:flex;align-items:center;gap:10px}
+.pdf-bar span{color:#fff;font-size:14px;font-weight:600;flex:1}
+.pdf-doc{padding:48px 52px;font-family:'DM Sans',sans-serif;font-size:13.5px;line-height:1.7;color:#1a2033}
+.pdf-logo-row{display:flex;align-items:center;gap:12px;margin-bottom:32px;padding-bottom:18px;border-bottom:2.5px solid #0b1d4e}
+.pdf-logo-box{width:44px;height:44px;background:#0b1d4e;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px;flex-shrink:0}
+.pdf-logo-name{font-size:20px;font-weight:700;color:#0b1d4e;font-family:'DM Serif Display',serif}
+.pdf-logo-sub{font-size:11px;color:#94a3b8;margin-top:1px}
+.pdf-title{font-size:14px;font-weight:700;text-align:center;padding:13px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:28px;color:#0b1d4e}
+.pdf-sec{margin-bottom:24px}
+.pdf-sec-title{font-size:13px;font-weight:700;color:#0b1d4e;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid #e2e8f0}
+.pdf-field{margin-bottom:5px;font-size:13px}
+.pdf-field strong{color:#0b1d4e}
+.pdf-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.pdf-table th{background:#f0f4f8;padding:7px 10px;text-align:left;font-weight:600;border:1px solid #e2e8f0}
+.pdf-table td{padding:7px 10px;border:1px solid #e2e8f0;vertical-align:top}
+.pdf-ocean{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:8px}
+.pdf-oc{border-radius:8px;padding:10px;text-align:center;border:1.5px solid}
+.pdf-oc-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.pdf-oc-pct{font-size:20px;font-weight:700}
+.pdf-oc-lv{font-size:9px;font-weight:700;margin-top:2px}
+.pdf-O{border-color:#8b5cf6;background:#f5f3ff}.pdf-O .pdf-oc-lbl,.pdf-O .pdf-oc-pct,.pdf-O .pdf-oc-lv{color:#7c3aed}
+.pdf-C{border-color:#1d5fd4;background:#eff6ff}.pdf-C .pdf-oc-lbl,.pdf-C .pdf-oc-pct,.pdf-C .pdf-oc-lv{color:#1d4ed8}
+.pdf-E{border-color:#d97706;background:#fffbeb}.pdf-E .pdf-oc-lbl,.pdf-E .pdf-oc-pct,.pdf-E .pdf-oc-lv{color:#b45309}
+.pdf-A{border-color:#059669;background:#ecfdf5}.pdf-A .pdf-oc-lbl,.pdf-A .pdf-oc-pct,.pdf-A .pdf-oc-lv{color:#065f46}
+.pdf-N{border-color:#dc2626;background:#fef2f2}.pdf-N .pdf-oc-lbl,.pdf-N .pdf-oc-pct,.pdf-N .pdf-oc-lv{color:#991b1b}
+.pdf-rec-alto{border:1.5px solid #059669;background:#ecfdf5;color:#065f46;padding:12px 14px;border-radius:8px;margin-top:8px;font-weight:700;font-size:13px}
+.pdf-rec-moderado{border:1.5px solid #d97706;background:#fffbeb;color:#b45309;padding:12px 14px;border-radius:8px;margin-top:8px;font-weight:700;font-size:13px}
+.pdf-rec-reservas{border:1.5px solid #dc2626;background:#fef2f2;color:#991b1b;padding:12px 14px;border-radius:8px;margin-top:8px;font-weight:700;font-size:13px}
+.pdf-footer{border-top:1px solid #e2e8f0;padding-top:14px;margin-top:28px;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8}
+
+@media(max-width:640px){.form-grid,.form-grid-3{grid-template-columns:1fr}.ocean-grid{grid-template-columns:1fr 1fr}.pdf-ocean{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-mark">CH</div>
+      <div class="auth-name">Claves Health</div>
+    </div>
+    <h2 style="text-align:center;font-size:17px;color:var(--navy);margin-bottom:4px">Pareceres Técnicos</h2>
+    <p style="text-align:center;font-size:13px;color:var(--gray3);margin-bottom:22px">Acesso restrito à equipe Claves Health</p>
+    <div class="auth-err" id="auth-err"></div>
+    <div class="fg"><label>E-mail</label><input type="email" id="a-email" placeholder="analista@claveshealth.com.br"></div>
+    <div class="fg"><label>Senha</label>
+      <div class="pw-wrap">
+        <input type="password" id="a-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
+        <button class="pw-eye" onclick="togglePw()">👁</button>
+      </div>
+    </div>
+    <button class="btn btn-navy btn-full" onclick="login()" id="login-btn">Entrar</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <nav class="topbar">
+    <div class="tl-mark">CH</div>
+    <span class="tl-name">Claves Health</span>
+    <div class="tl-sep"></div>
+    <span class="tl-sub">Pareceres</span>
+    <span class="tl-badge">2.0</span>
+    <div class="tb-right">
+      <button class="tb-btn active" onclick="nav('lista',this)">📋 Pareceres</button>
+      <button class="tb-btn" onclick="nav('big5',this)">🧠 Big Five</button>
+      <span class="tb-user" id="tb-user"></span>
+      <button class="tb-btn" onclick="firebase.auth().signOut()">Sair</button>
+    </div>
+  </nav>
+
+  <!-- LISTA -->
+  <div class="page active" id="page-lista">
+    <div class="ph">
+      <div><h1>Pareceres Técnicos</h1><p id="lista-sub">Carregando...</p></div>
+      <div class="ph-actions">
+        <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ Exportar CSV</button>
+        <button class="btn btn-primary" onclick="newParecer()">+ Novo Parecer</button>
+      </div>
+    </div>
+    <div class="stats" id="dash-stats"></div>
+    <div class="table-wrap">
+      <div class="table-toolbar">
+        <div class="search-wrap">🔍<input type="text" id="search" placeholder="Buscar por nome, cargo ou processo..." oninput="renderTable()"></div>
+        <select class="btn btn-ghost btn-sm" id="filter-rec" onchange="renderTable()" style="border:1.5px solid var(--gray2)">
+          <option value="">Todas as recomendações</option>
+          <option value="alto">✅ Altamente Recomendado</option>
+          <option value="moderado">🟡 Com ressalvas</option>
+          <option value="reservas">⚠️ Não recomendado</option>
+          <option value="">Em aberto</option>
+        </select>
+      </div>
+      <table>
+        <thead><tr><th>Candidato</th><th>Cargo</th><th>Processo / Cliente</th><th>Analista</th><th>Big Five</th><th>Recomendação</th><th>Data</th><th></th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PARECER FORM -->
+  <div class="page" id="page-parecer">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:22px;max-width:820px;margin-left:auto;margin-right:auto">
+      <button class="btn btn-ghost btn-sm" onclick="nav('lista')">← Voltar</button>
+      <div><h1 style="font-size:20px;font-weight:700;color:var(--navy)" id="par-page-title">Novo Parecer Técnico</h1>
+      <p style="font-size:13px;color:var(--gray3)">Preencha todas as seções e gere o PDF ao finalizar.</p></div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="saveParecer(false)">💾 Salvar</button>
+        <button class="btn btn-primary btn-sm" onclick="openPDF()">📄 Gerar PDF</button>
+      </div>
+    </div>
+    <div class="form-wrap">
+      <div class="alert alert-info">💡 Salve antes de gerar o PDF para garantir que todos os dados estejam atualizados.</div>
+
+      <!-- SEC 1 -->
+      <div class="sec-card">
+        <h2><span class="sec-num">1</span> Identificação do Candidato</h2>
+        <div class="form-grid">
+          <div class="fg full"><label>Nome completo *</label><input id="p-name" type="text" placeholder="Nome Sobrenome"></div>
+          <div class="fg"><label>Cidade / UF *</label><input id="p-city" type="text" placeholder="São Paulo/SP"></div>
+          <div class="fg"><label>Telefone</label><input id="p-phone" type="text" placeholder="(11) 99999-9999"></div>
+          <div class="fg"><label>E-mail</label><input id="p-email" type="email" placeholder="candidato@email.com"></div>
+          <div class="fg"><label>Disponibilidade</label><input id="p-avail" type="text" placeholder="Imediata / 30 dias"></div>
+          <div class="fg"><label>Pretensão Salarial</label><input id="p-salary" type="text" placeholder="R$ 15.000,00"></div>
+          <div class="fg"><label>Cargo pretendido *</label><input id="p-role" type="text" placeholder="Médico Cardiologista"></div>
+          <div class="fg"><label>Processo / Cliente *</label><input id="p-position" type="text" placeholder="Neuromaster – Dr. Paulo Diniz"></div>
+          <div class="fg"><label>Analista responsável *</label><input id="p-analyst" type="text" placeholder="Seu nome"></div>
+          <div class="fg"><label>Data do parecer</label><input id="p-date" type="date"></div>
+        </div>
+      </div>
+
+      <!-- SEC 2 -->
+      <div class="sec-card">
+        <h2><span class="sec-num">2</span> Resumo Profissional</h2>
+        <div class="fg"><label>Descreva a trajetória e destaques do candidato *</label>
+        <textarea id="p-summary" rows="6" placeholder="Profissional com trajetória consolidada em..."></textarea></div>
+      </div>
+
+      <!-- SEC 3 -->
+      <div class="sec-card">
+        <h2><span class="sec-num">3</span> Formação Acadêmica</h2>
+        <div class="fg" style="margin-bottom:12px"><label>Formação principal (uma por linha)</label>
+        <textarea id="p-edu" rows="4" placeholder="Graduação em Medicina – USP (2015)&#10;Residência em Cardiologia – InCor (2018)&#10;MBA em Gestão em Saúde – FGV (2021)"></textarea></div>
+        <div class="fg"><label>Cursos e certificações complementares</label>
+        <textarea id="p-certs" rows="3" placeholder="ACLS – American Heart Association (2023)&#10;Pacote Office"></textarea></div>
+      </div>
+
+      <!-- SEC 4 -->
+      <div class="sec-card">
+        <h2><span class="sec-num">4</span> Experiência Profissional Relevante</h2>
+        <div class="fg"><label>Descreva empresa, período, cargo e atividades principais</label>
+        <textarea id="p-exp" rows="9" placeholder="Hospital das Clínicas – 01/2019 a atual – Médico Cardiologista&#10;• Atendimento de pacientes em enfermaria e UTI.&#10;• Realização de exames hemodinâmicos e laudos.&#10;&#10;Clínica XYZ – 03/2015 a 12/2018 – Médico Plantonista&#10;• Atendimento de urgência e emergência."></textarea></div>
+      </div>
+
+      <!-- SEC 5 -->
+      <div class="sec-card">
+        <h2><span class="sec-num">5</span> Aderência à Vaga</h2>
+        <table class="adh-table">
+          <thead><tr><th style="width:36%">Requisito da Vaga</th><th style="width:11%">Aval.</th><th>Comentários</th><th style="width:28px"></th></tr></thead>
+          <tbody id="adh-body"></tbody>
+        </table>
+        <span class="add-row" onclick="addAdhRow()">+ Adicionar requisito</span>
+      </div>
+
+      <!-- SEC 6: BIG FIVE -->
+      <div class="sec-card">
+        <h2><span class="sec-num">6</span> Perfil Comportamental – Método Claves (Big Five OCEAN)</h2>
+        <div id="ocean-status" class="alert alert-warn" style="margin-bottom:14px">
+          Big Five ainda não realizado para este candidato. Ajuste os sliders manualmente ou aplique o teste completo na aba <strong>🧠 Big Five</strong>.
+        </div>
+        <div class="ocean-grid" id="ocean-inputs"></div>
+        <div class="fg">
+          <label>Análise comportamental do analista</label>
+          <textarea id="p-ocean-text" rows="4" placeholder="O candidato demonstra perfil altamente consciencioso e empático, alinhado com os valores do setor de saúde..."></textarea>
+        </div>
+      </div>
+
+      <!-- SEC 7 -->
+      <div class="sec-card">
+        <h2><span class="sec-num">7</span> Considerações Finais e Recomendação</h2>
+        <div class="fg" style="margin-bottom:14px"><label>Texto de considerações finais *</label>
+        <textarea id="p-final" rows="5" placeholder="O candidato apresenta forte aderência à posição de..."></textarea></div>
+        <div class="fg" style="margin-bottom:12px">
+          <label>Recomendação final *</label>
+          <select id="p-rec" onchange="updateRecBox()">
+            <option value="">Selecione...</option>
+            <option value="alto">✅ Altamente Recomendado(a)</option>
+            <option value="moderado">🟡 Recomendado(a) com ressalvas</option>
+            <option value="reservas">⚠️ Não recomendado(a) nesta etapa</option>
+          </select>
+        </div>
+        <div id="rec-display"></div>
+      </div>
+
+      <!-- CV -->
+      <div class="sec-card">
+        <h2>📎 Currículo do Candidato</h2>
+        <div class="upload-area" id="cv-area">
+          <input type="file" id="cv-file" accept=".pdf,.doc,.docx" onchange="handleCV(event)">
+          <div style="font-size:26px">📄</div>
+          <p style="font-size:13px;font-weight:600;margin-top:6px">Clique para anexar o currículo</p>
+          <p style="font-size:12px;color:var(--gray3)">PDF, DOC ou DOCX · máx. 10 MB</p>
+        </div>
+        <div id="cv-prev" class="file-prev" style="display:none">
+          <span id="cv-name"></span>
+          <button onclick="removeCV()">✕</button>
+        </div>
+        <p style="font-size:11px;color:var(--gray3);margin-top:8px">O nome do arquivo fica registrado no parecer. Envie o PDF junto com o currículo ao cliente.</p>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding-bottom:40px">
+        <button class="btn btn-ghost" onclick="nav('lista')">Cancelar</button>
+        <button class="btn btn-outline" onclick="saveParecer(false)">💾 Salvar rascunho</button>
+        <button class="btn btn-primary" onclick="openPDF()">📄 Visualizar e baixar PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BIG FIVE -->
+  <div class="page" id="page-big5">
+    <div style="max-width:700px;margin:0 auto">
+      <div class="ph">
+        <div><h1>Avaliação Big Five</h1><p>50 questões · ~10 minutos · Resultado vincula ao parecer automaticamente</p></div>
+      </div>
+      <div class="sec-card">
+        <h2>Dados do Candidato</h2>
+        <div class="form-grid">
+          <div class="fg"><label>Nome completo *</label><input type="text" id="bf-name" placeholder="Nome do candidato"></div>
+          <div class="fg"><label>Processo / Cargo</label><input type="text" id="bf-pos" placeholder="Médico – Neuromaster"></div>
+        </div>
+      </div>
+      <div class="prog-strip">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray3)">
+          <span>Progresso</span><span id="bf-prog-txt">0 de 50 respondidas</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" id="bf-prog-fill" style="width:0%"></div></div>
+      </div>
+      <div id="bf-questions"></div>
+      <div style="text-align:center;padding:16px 0 40px">
+        <p id="bf-err" style="color:var(--red);font-size:13px;margin-bottom:12px;display:none">Responda todas as 50 questões antes de continuar.</p>
+        <button class="btn btn-primary" style="padding:13px 40px;font-size:15px" onclick="submitBF()">Calcular e vincular ao candidato →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: vincular BF -->
+<div class="modal-bg" id="modal-link">
+  <div class="modal">
+    <h3>Vincular resultado ao parecer</h3>
+    <p>Selecione o candidato para vincular os scores do Big Five automaticamente.</p>
+    <div class="fg" style="margin-bottom:0">
+      <label>Candidato</label>
+      <select id="link-sel"><option value="">Selecione...</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmLink()">Vincular e abrir parecer</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF -->
+<div id="pdf-overlay">
+  <div id="pdf-wrap">
+    <div class="pdf-bar">
+      <span id="pdf-bar-title">Parecer Técnico</span>
+      <button class="btn btn-primary btn-sm" onclick="downloadPDF()">⬇ Baixar PDF</button>
+      <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:none" onclick="document.getElementById('pdf-overlay').classList.remove('open')">✕ Fechar</button>
+    </div>
+    <div class="pdf-doc" id="pdf-content"></div>
+  </div>
+</div>
+
+<script>
+// ── FIREBASE ──
+const firebaseConfig={apiKey:"AIzaSyABAMCRg84FCvR0rULz1WfAOFqWRnZY3do",authDomain:"claves-ats.firebaseapp.com",projectId:"claves-ats",storageBucket:"claves-ats.firebasestorage.app",messagingSenderId:"668667602959",appId:"1:668667602959:web:0720f2f71cc4b160ac9b7a"};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth(), db=firebase.firestore();
+
+// ── AUTH ──
+function togglePw(){const i=document.getElementById('a-pass');i.type=i.type==='password'?'text':'password';}
+function login(){
+  const em=document.getElementById('a-email').value.trim(), pw=document.getElementById('a-pass').value;
+  const err=document.getElementById('auth-err'), btn=document.getElementById('login-btn');
+  err.style.display='none'; btn.innerHTML='<span class="spinner"></span> Entrando...'; btn.disabled=true;
+  auth.signInWithEmailAndPassword(em,pw).catch(()=>{
+    err.textContent='E-mail ou senha incorretos.'; err.style.display='block';
+    btn.innerHTML='Entrar'; btn.disabled=false;
+  });
+}
+auth.onAuthStateChanged(u=>{
+  if(u){
+    document.getElementById('auth-screen').style.display='none';
+    document.getElementById('app').classList.add('visible');
+    document.getElementById('tb-user').textContent=u.email.split('@')[0];
+    initData();
+  } else {
+    document.getElementById('auth-screen').style.display='flex';
+    document.getElementById('app').classList.remove('visible');
+    document.getElementById('login-btn').innerHTML='Entrar';
+    document.getElementById('login-btn').disabled=false;
+  }
+});
+
+// ── DATA ──
+let pareceres=[], currentId=null, bfAnswers={}, lastBfScores=null, cvFileName='', editingNew=false;
+
+function initData(){
+  db.collection('pareceres').orderBy('createdAt','desc').onSnapshot(snap=>{
+    pareceres=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderTable(); renderStats();
+  });
+}
+
+// ── NAV ──
+function nav(page, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tb-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  if(btn) btn.classList.add('active');
+  else { const map={lista:0,big5:1}; document.querySelectorAll('.tb-btn')[map[page]||0]?.classList.add('active'); }
+  if(page==='big5') renderBFQuestions();
+  window.scrollTo(0,0);
+}
+function closeModal(){document.getElementById('modal-link').classList.remove('open');}
+
+// ── STATS ──
+function renderStats(){
+  const total=pareceres.length;
+  const comBF=pareceres.filter(p=>p.ocean).length;
+  const alto=pareceres.filter(p=>p.finalRec==='alto').length;
+  const mod=pareceres.filter(p=>p.finalRec==='moderado').length;
+  document.getElementById('dash-stats').innerHTML=`
+    <div class="stat"><div class="n">${total}</div><div class="l">Total de pareceres</div></div>
+    <div class="stat"><div class="n">${comBF}</div><div class="l">Com Big Five</div></div>
+    <div class="stat"><div class="n">${alto}</div><div class="l">Altamente recomendados</div></div>
+    <div class="stat"><div class="n">${mod}</div><div class="l">Com ressalvas</div></div>`;
+  document.getElementById('lista-sub').textContent=`${total} parecer${total!==1?'es':''} cadastrado${total!==1?'s':''}`;
+}
+
+// ── TABLE ──
+function renderTable(){
+  const q=(document.getElementById('search')?.value||'').toLowerCase();
+  const rec=document.getElementById('filter-rec')?.value||'';
+  const rows=pareceres.filter(p=>{
+    const m=!q||(p.name||'').toLowerCase().includes(q)||(p.role||'').toLowerCase().includes(q)||(p.position||'').toLowerCase().includes(q);
+    const r=!rec||(p.finalRec||''===rec?true:p.finalRec===rec);
+    return m&&(rec===''||p.finalRec===rec||(!p.finalRec&&rec===''));
+  });
+  const recTag={alto:'<span class="tag tag-green">✅ Recomendado</span>',moderado:'<span class="tag tag-amber">🟡 Com ressalvas</span>',reservas:'<span class="tag tag-red">⚠️ Não recomendado</span>'};
+  document.getElementById('tbody').innerHTML=rows.length?rows.map(p=>`<tr>
+    <td><div class="td-name">${p.name||'—'}</div><div class="td-sub">${p.city||''}</div></td>
+    <td>${p.role||'—'}</td>
+    <td>${p.position||'—'}</td>
+    <td>${p.analyst||'—'}</td>
+    <td>${p.ocean?'<span class="tag tag-green">✓ Realizado</span>':'<span class="tag tag-gray">Pendente</span>'}</td>
+    <td>${recTag[p.finalRec]||'<span class="tag tag-gray">Em aberto</span>'}</td>
+    <td style="font-size:12px;color:var(--gray3)">${p.date||'—'}</td>
+    <td style="display:flex;gap:6px">
+      <button class="btn btn-outline btn-sm" onclick="editParecer('${p.id}')">Editar</button>
+      <button class="btn btn-primary btn-sm" onclick="openPDFById('${p.id}')">PDF</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')">✕</button>
+    </td>
+  </tr>`).join(''):`<tr><td colspan="8"><div class="empty"><h3>Nenhum parecer encontrado</h3><p>Clique em "+ Novo Parecer" para começar.</p></div></td></tr>`;
+}
+
+// ── NEW / EDIT ──
+function newParecer(){
+  currentId=null; editingNew=true;
+  document.getElementById('par-page-title').textContent='Novo Parecer Técnico';
+  resetForm();
+  nav('parecer');
+}
+function editParecer(id){
+  currentId=id; editingNew=false;
+  const p=pareceres.find(x=>x.id===id);
+  if(!p)return;
+  document.getElementById('par-page-title').textContent='Editar – '+p.name;
+  loadForm(p);
+  nav('parecer');
+}
+function deleteParecer(id){
+  if(!confirm('Excluir este parecer? Esta ação não pode ser desfeita.'))return;
+  db.collection('pareceres').doc(id).delete();
+}
+
+function resetForm(){
+  ['p-name','p-city','p-phone','p-email','p-avail','p-salary','p-role','p-position','p-analyst','p-summary','p-edu','p-certs','p-exp','p-ocean-text','p-final'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('p-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('p-rec').value='';
+  document.getElementById('rec-display').style.display='none';
+  buildAdhTable(null);
+  renderOceanInputs(null,false);
+  removeCV();
+}
+function loadForm(p){
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||'';};
+  set('p-name',p.name); set('p-city',p.city); set('p-phone',p.phone); set('p-email',p.email);
+  set('p-avail',p.avail); set('p-salary',p.salary); set('p-role',p.role);
+  set('p-position',p.position); set('p-analyst',p.analyst); set('p-date',p.date);
+  set('p-summary',p.summary); set('p-edu',p.education); set('p-certs',p.certs);
+  set('p-exp',p.experience); set('p-ocean-text',p.oceanAnalysis); set('p-final',p.final);
+  document.getElementById('p-rec').value=p.finalRec||'';
+  updateRecBox();
+  buildAdhTable(p.adherence);
+  renderOceanInputs(p.ocean, !!p.ocean);
+  cvFileName=p.cvFileName||'';
+  if(cvFileName){ document.getElementById('cv-prev').style.display='flex'; document.getElementById('cv-name').textContent=cvFileName; document.getElementById('cv-area').style.display='none'; }
+  else { removeCV(); }
+}
+
+// ── SAVE ──
+function getFormData(){
+  return{
+    name:document.getElementById('p-name').value.trim(),
+    city:document.getElementById('p-city').value.trim(),
+    phone:document.getElementById('p-phone').value.trim(),
+    email:document.getElementById('p-email').value.trim(),
+    avail:document.getElementById('p-avail').value.trim(),
+    salary:document.getElementById('p-salary').value.trim(),
+    role:document.getElementById('p-role').value.trim(),
+    position:document.getElementById('p-position').value.trim(),
+    analyst:document.getElementById('p-analyst').value.trim(),
+    date:document.getElementById('p-date').value,
+    summary:document.getElementById('p-summary').value.trim(),
+    education:document.getElementById('p-edu').value.trim(),
+    certs:document.getElementById('p-certs').value.trim(),
+    experience:document.getElementById('p-exp').value.trim(),
+    adherence:getAdhRows(),
+    ocean:getOceanScores(),
+    oceanAnalysis:document.getElementById('p-ocean-text').value.trim(),
+    final:document.getElementById('p-final').value.trim(),
+    finalRec:document.getElementById('p-rec').value,
+    cvFileName,
+  };
+}
+function saveParecer(redirect=true){
+  const d=getFormData();
+  if(!d.name){alert('Informe o nome do candidato.');return Promise.reject();}
+  const ts=firebase.firestore.FieldValue.serverTimestamp();
+  let p;
+  if(currentId) p=db.collection('pareceres').doc(currentId).update({...d,updatedAt:ts});
+  else p=db.collection('pareceres').add({...d,createdAt:ts}).then(ref=>{currentId=ref.id;});
+  return p.then(()=>{ if(redirect) nav('lista'); else alert('Salvo com sucesso!'); });
+}
+
+// ── ADHERENCE ──
+function buildAdhTable(rows){
+  document.getElementById('adh-body').innerHTML='';
+  (rows&&rows.length?rows:[{req:'',eval:'✔',comment:''}]).forEach(r=>addAdhRowData(r));
+}
+function addAdhRow(){addAdhRowData({req:'',eval:'✔',comment:''});}
+function addAdhRowData(d){
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td><input type="text" value="${d.req||''}" placeholder="Ex: CRM ativo"></td>
+    <td><select><option ${d.eval==='✔'?'selected':''}>✔</option><option ${d.eval==='✘'?'selected':''}>✘</option><option ${d.eval==='⚡'?'selected':''}>⚡</option></select></td>
+    <td><input type="text" value="${d.comment||''}" placeholder="Comentário"></td>
+    <td><button onclick="this.closest('tr').remove()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:15px">✕</button></td>`;
+  document.getElementById('adh-body').appendChild(tr);
+}
+function getAdhRows(){
+  return[...document.querySelectorAll('#adh-body tr')].map(tr=>{
+    const ins=tr.querySelectorAll('input'); const sel=tr.querySelector('select');
+    return{req:ins[0]?.value||'',eval:sel?.value||'✔',comment:ins[1]?.value||''};
+  }).filter(r=>r.req);
+}
+
+// ── OCEAN ──
+const DM={O:'Abertura',C:'Conscienciosidade',E:'Extroversão',A:'Amabilidade',N:'Neuroticismo'};
+function renderOceanInputs(scores, linked){
+  const panel=document.getElementById('ocean-inputs');
+  const status=document.getElementById('ocean-status');
+  panel.innerHTML='';
+  if(linked&&scores){ status.className='alert alert-success'; status.innerHTML='✓ Resultado importado automaticamente da avaliação Big Five realizada pelo candidato.'; }
+  else { status.className='alert alert-warn'; status.innerHTML='Big Five ainda não realizado. Ajuste os sliders manualmente ou aplique o teste na aba <strong>🧠 Big Five</strong>.'; }
+  ['O','C','E','A','N'].forEach(d=>{
+    const val=scores?scores[d]:50;
+    const lv=val>=70?'Alto':val>=40?'Moderado':'Baixo';
+    panel.innerHTML+=`<div class="oc oc-${d}">
+      <div class="oc-lbl">${DM[d]}</div>
+      <div class="oc-pct" id="oc-pct-${d}">${val}%</div>
+      <div class="oc-bar"><div class="oc-bar-fill" id="oc-bar-${d}" style="width:${val}%"></div></div>
+      <div class="oc-lv" id="oc-lv-${d}">${lv}</div>
+      <input type="range" class="oc-slider" min="0" max="100" value="${val}" oninput="updateOC('${d}',this.value)">
+    </div>`;
+  });
+}
+function updateOC(d,v){
+  document.getElementById('oc-pct-'+d).textContent=v+'%';
+  document.getElementById('oc-bar-'+d).style.width=v+'%';
+  document.getElementById('oc-lv-'+d).textContent=v>=70?'Alto':v>=40?'Moderado':'Baixo';
+}
+function getOceanScores(){
+  const s={};
+  ['O','C','E','A','N'].forEach(d=>{ const el=document.getElementById('oc-pct-'+d); s[d]=el?parseInt(el.textContent):50; });
+  return s;
+}
+
+// ── REC BOX ──
+function updateRecBox(){
+  const v=document.getElementById('p-rec').value;
+  const box=document.getElementById('rec-display');
+  if(!v){box.style.display='none';return;}
+  const labels={alto:'✅ Altamente Recomendado(a) — candidato apto a avançar nas próximas etapas.',moderado:'🟡 Recomendado(a) com ressalvas — avançar com atenção aos pontos indicados.',reservas:'⚠️ Não recomendado(a) nesta etapa — perfil não aderente ao momento do processo.'};
+  box.style.display='block';
+  box.innerHTML=`<div class="rec-box rec-${v}"><div class="rec-lbl">${labels[v]}</div></div>`;
+}
+
+// ── CV ──
+function handleCV(e){const f=e.target.files[0];if(!f)return;cvFileName=f.name;document.getElementById('cv-prev').style.display='flex';document.getElementById('cv-name').textContent=f.name;document.getElementById('cv-area').style.display='none';}
+function removeCV(){cvFileName='';document.getElementById('cv-prev').style.display='none';document.getElementById('cv-area').style.display='block';const fi=document.getElementById('cv-file');if(fi)fi.value='';}
+
+// ── EXPORT CSV ──
+function exportCSV(){
+  const h='Nome,Cidade,E-mail,Cargo,Processo,Analista,Data,Big Five O,C,E,A,N,Recomendação';
+  const rows=pareceres.map(p=>[p.name,p.city,p.email,p.role,p.position,p.analyst,p.date,p.ocean?p.ocean.O:'',p.ocean?p.ocean.C:'',p.ocean?p.ocean.E:'',p.ocean?p.ocean.A:'',p.ocean?p.ocean.N:'',p.finalRec||''].map(v=>`"${v||''}"`).join(','));
+  const csv=[h,...rows].join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='Claves_Pareceres.csv';a.click();
+}
+
+// ── BIG FIVE ──
+const QUESTIONS=[
+  {id:1,d:'O',t:'Tenho curiosidade intelectual e gosto de explorar ideias novas.',r:false},
+  {id:2,d:'O',t:'Aprecio obras de arte, música ou literatura, mesmo que não seja especialista.',r:false},
+  {id:3,d:'O',t:'Prefiro rotinas estabelecidas a experimentar coisas novas.',r:true},
+  {id:4,d:'O',t:'Tenho imaginação fértil e frequentemente fico absorto(a) em fantasias.',r:false},
+  {id:5,d:'O',t:'Fico entediado(a) com conversas abstratas ou filosóficas.',r:true},
+  {id:6,d:'O',t:'Gosto de pensar em soluções criativas para os problemas.',r:false},
+  {id:7,d:'O',t:'Prefiro o familiar ao desconhecido.',r:true},
+  {id:8,d:'O',t:'Busco aprender coisas novas regularmente, mesmo fora do meu campo.',r:false},
+  {id:9,d:'O',t:'Valorizo a tradição e a convenção social.',r:true},
+  {id:10,d:'O',t:'Tenho sensibilidade estética desenvolvida.',r:false},
+  {id:11,d:'C',t:'Sou organizado(a) e mantenho minhas coisas sempre em ordem.',r:false},
+  {id:12,d:'C',t:'Cumpro prazos com rigor e me sinto incomodado(a) quando não o faço.',r:false},
+  {id:13,d:'C',t:'Com frequência deixo tarefas inacabadas.',r:true},
+  {id:14,d:'C',t:'Planejo minhas ações antes de executá-las.',r:false},
+  {id:15,d:'C',t:'Tenho dificuldade em manter o foco por longos períodos.',r:true},
+  {id:16,d:'C',t:'Sou diligente e trabalho com afinco para atingir meus objetivos.',r:false},
+  {id:17,d:'C',t:'Ajo de modo impulsivo sem pensar nas consequências.',r:true},
+  {id:18,d:'C',t:'Sou confiável: as pessoas podem contar comigo.',r:false},
+  {id:19,d:'C',t:'Preciso de lembretes para não esquecer compromissos.',r:true},
+  {id:20,d:'C',t:'Me esforço para fazer as coisas da melhor maneira possível.',r:false},
+  {id:21,d:'E',t:'Me sinto bem no centro das atenções.',r:false},
+  {id:22,d:'E',t:'Prefiro ambientes tranquilos a festas ou reuniões grandes.',r:true},
+  {id:23,d:'E',t:'Converso facilmente com pessoas que acabei de conhecer.',r:false},
+  {id:24,d:'E',t:'Fico energizado(a) após passar tempo com muitas pessoas.',r:false},
+  {id:25,d:'E',t:'Costumo ser o(a) líder natural dos grupos que participo.',r:false},
+  {id:26,d:'E',t:'Preciso de tempo a sós para recarregar minha energia.',r:true},
+  {id:27,d:'E',t:'Sou comunicativo(a) e me expresso facilmente.',r:false},
+  {id:28,d:'E',t:'Em geral, prefiro trabalhar sozinho(a) a em equipe.',r:true},
+  {id:29,d:'E',t:'Tenho muito entusiasmo e gosto que ele apareça no meu trabalho.',r:false},
+  {id:30,d:'E',t:'Mantenho um círculo social restrito e seleto.',r:true},
+  {id:31,d:'A',t:'Me preocupo genuinamente com o bem-estar dos outros.',r:false},
+  {id:32,d:'A',t:'Costumo colocar as necessidades alheias acima das minhas.',r:false},
+  {id:33,d:'A',t:'Posso ser frio(a) e distante com as pessoas.',r:true},
+  {id:34,d:'A',t:'Confio nas pessoas e acredito em sua boa intenção.',r:false},
+  {id:35,d:'A',t:'Me irrito com facilidade quando não concordo com alguém.',r:true},
+  {id:36,d:'A',t:'Gosto de ajudar e me sentir útil para os outros.',r:false},
+  {id:37,d:'A',t:'Sou competitivo(a) e priorizo meus próprios interesses.',r:true},
+  {id:38,d:'A',t:'Sou empático(a): consigo me colocar no lugar das pessoas.',r:false},
+  {id:39,d:'A',t:'Tenho dificuldade em perdoar quando me magoam.',r:true},
+  {id:40,d:'A',t:'Acredito que a cooperação leva a melhores resultados que a competição.',r:false},
+  {id:41,d:'N',t:'Me estresso facilmente em situações de pressão.',r:false},
+  {id:42,d:'N',t:'Meu humor é estável mesmo em dias difíceis.',r:true},
+  {id:43,d:'N',t:'Tenho ansiedade frequente, mesmo sem motivo claro.',r:false},
+  {id:44,d:'N',t:'Recupero-me rapidamente de experiências negativas.',r:true},
+  {id:45,d:'N',t:'Me preocupo com o futuro mais do que a maioria das pessoas.',r:false},
+  {id:46,d:'N',t:'Mantenho a calma mesmo em situações de emergência.',r:true},
+  {id:47,d:'N',t:'Tenho oscilações de humor com frequência.',r:false},
+  {id:48,d:'N',t:'Me sinto seguro(a) e raramente me preocupo com o que os outros pensam.',r:true},
+  {id:49,d:'N',t:'Fico perturbado(a) quando algo não sai como planejado.',r:false},
+  {id:50,d:'N',t:'Lido bem com críticas e as uso de forma construtiva.',r:true},
+];
+const DC={O:'#8b5cf6',C:'#1d5fd4',E:'#d97706',A:'#059669',N:'#dc2626'};
+
+function renderBFQuestions(){
+  const c=document.getElementById('bf-questions');
+  if(c.children.length)return;
+  QUESTIONS.forEach((q,i)=>{
+    const div=document.createElement('div'); div.className='q-block';
+    div.innerHTML=`<span class="q-badge" style="background:${DC[q.d]}22;color:${DC[q.d]}">${DM[q.d]}</span>
+      <div class="q-text">${i+1}. ${q.t}</div>
+      <div class="likert">${[1,2,3,4,5].map(v=>`<div class="lo"><input type="radio" name="bfq${q.id}" id="bfq${q.id}v${v}" value="${v}"><label for="bfq${q.id}v${v}"><span class="ln">${v}</span><span>${['Discordo','','Neutro','','Concordo'][v-1]}</span></label></div>`).join('')}</div>
+      <div class="likert-ends"><span>Discordo totalmente</span><span>Concordo totalmente</span></div>`;
+    c.appendChild(div);
+    div.querySelectorAll('input').forEach(r=>r.addEventListener('change',()=>{bfAnswers[q.id]=parseInt(r.value);updateBFProg();}));
+  });
+}
+function updateBFProg(){
+  const n=Object.keys(bfAnswers).length;
+  document.getElementById('bf-prog-txt').textContent=`${n} de 50 respondidas`;
+  document.getElementById('bf-prog-fill').style.width=(n/50*100)+'%';
+}
+function calcBF(){
+  const raw={O:[],C:[],E:[],A:[],N:[]};
+  QUESTIONS.forEach(q=>{let v=bfAnswers[q.id]||3;if(q.r)v=6-v;raw[q.d].push(v);});
+  const s={};Object.keys(raw).forEach(d=>{s[d]=Math.round((raw[d].reduce((a,b)=>a+b,0)/(10*5))*100);});
+  return s;
+}
+function submitBF(){
+  if(Object.keys(bfAnswers).length<50){document.getElementById('bf-err').style.display='block';return;}
+  document.getElementById('bf-err').style.display='none';
+  lastBfScores=calcBF();
+  const sel=document.getElementById('link-sel');
+  sel.innerHTML='<option value="">Selecione...</option>'+pareceres.map(p=>`<option value="${p.id}">${p.name||'Sem nome'} – ${p.position||'s/ processo'}</option>`).join('');
+  document.getElementById('modal-link').classList.add('open');
+}
+function confirmLink(){
+  const id=document.getElementById('link-sel').value;
+  if(!id){alert('Selecione um candidato.');return;}
+  db.collection('pareceres').doc(id).update({ocean:lastBfScores,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(()=>{
+      closeModal();
+      bfAnswers={};
+      document.getElementById('bf-questions').innerHTML='';
+      document.getElementById('bf-prog-fill').style.width='0%';
+      document.getElementById('bf-prog-txt').textContent='0 de 50 respondidas';
+      editParecer(id);
+    });
+}
+
+// ── PDF ──
+function openPDF(){ saveParecer(false).then(()=>{ const p=pareceres.find(x=>x.id===currentId)||getFormData(); buildPDF(p); }); }
+function openPDFById(id){ const p=pareceres.find(x=>x.id===id); if(p){currentId=id;buildPDF(p);} }
+
+function buildPDF(p){
+  document.getElementById('pdf-bar-title').textContent='Parecer – '+(p.name||'—');
+  const lv=v=>v>=70?'Alto':v>=40?'Moderado':'Baixo';
+  const o=p.ocean||null;
+  const eduList=(p.education||'').split('\n').filter(Boolean).map(l=>`<li>${l}</li>`).join('');
+  const certList=(p.certs||'').split('\n').filter(Boolean).map(l=>`<li>${l}</li>`).join('');
+  const expText=(p.experience||'').split('\n').map(l=>l.trim().startsWith('•')?`<li style="margin-left:16px">${l.slice(1).trim()}</li>`:`<p style="margin-top:8px;font-weight:600">${l}</p>`).join('');
+  const adhRows=(p.adherence||[]).map(r=>`<tr><td>${r.req}</td><td style="text-align:center;font-size:16px">${r.eval}</td><td>${r.comment}</td></tr>`).join('');
+  const oceanHTML=o?`<div class="pdf-ocean">${['O','C','E','A','N'].map(d=>`<div class="pdf-oc pdf-${d}"><div class="pdf-oc-lbl">${DM[d]}</div><div class="pdf-oc-pct">${o[d]}%</div><div class="pdf-oc-lv">${lv(o[d])}</div></div>`).join('')}</div>`:'<p style="font-size:12px;color:#94a3b8;margin-top:4px">Avaliação Big Five não realizada.</p>';
+  const recMap={alto:'pdf-rec-alto',moderado:'pdf-rec-moderado',reservas:'pdf-rec-reservas'};
+  const recLabel={alto:'✅ Altamente Recomendado(a) — candidato apto a avançar nas próximas etapas.',moderado:'🟡 Recomendado(a) com ressalvas — avançar com atenção aos pontos indicados.',reservas:'⚠️ Não recomendado(a) nesta etapa — perfil não aderente ao momento do processo.'};
+  const recHTML=p.finalRec?`<div class="${recMap[p.finalRec]}">${recLabel[p.finalRec]}</div>`:'';
+  const dateStr=p.date?new Date(p.date+'T12:00:00').toLocaleDateString('pt-BR'):new Date().toLocaleDateString('pt-BR');
+  document.getElementById('pdf-content').innerHTML=`
+    <div class="pdf-logo-row">
+      <div class="pdf-logo-box">CH</div>
+      <div><div class="pdf-logo-name">Claves Health</div><div class="pdf-logo-sub">Consultoria Especializada em Saúde · linkedin.com/claveshealth · @claves_health</div></div>
+    </div>
+    <div class="pdf-title">Parecer de Candidato – ${p.name||'—'} – ${p.city||'—'}</div>
+    <div class="pdf-sec">
+      <div class="pdf-sec-title">1. Identificação do Candidato</div>
+      <div class="pdf-field"><strong>Nome completo:</strong> ${p.name||'—'}</div>
+      <div class="pdf-field"><strong>Cidade/UF:</strong> ${p.city||'—'}</div>
+      <div class="pdf-field"><strong>Contato:</strong> ${p.phone||'—'} | ${p.email||'—'}</div>
+      <div class="pdf-field"><strong>Disponibilidade:</strong> ${p.avail||'—'}</div>
+      <div class="pdf-field"><strong>Pretensão Salarial:</strong> ${p.salary||'—'}</div>
+    </div>
+    <div class="pdf-sec"><div class="pdf-sec-title">2. Resumo Profissional</div><p>${(p.summary||'—').replace(/\n/g,'<br>')}</p></div>
+    <div class="pdf-sec">
+      <div class="pdf-sec-title">3. Formação Acadêmica</div>
+      ${eduList?`<ul style="margin-left:16px;margin-bottom:8px">${eduList}</ul>`:'<p>—</p>'}
+      ${certList?`<p style="margin-top:6px;font-weight:600">Cursos e certificações:</p><ul style="margin-left:16px;margin-top:4px">${certList}</ul>`:''}
+    </div>
+    <div class="pdf-sec"><div class="pdf-sec-title">4. Experiência Profissional Relevante</div><div>${expText||'—'}</div></div>
+    ${adhRows?`<div class="pdf-sec"><div class="pdf-sec-title">5. Aderência à Vaga</div><table class="pdf-table"><thead><tr><th>Requisito da Vaga</th><th>Avaliação</th><th>Comentários</th></tr></thead><tbody>${adhRows}</tbody></table></div>`:''}
+    <div class="pdf-sec">
+      <div class="pdf-sec-title">6. Perfil Comportamental – Método Claves (Big Five OCEAN)</div>
+      ${oceanHTML}
+      ${p.oceanAnalysis?`<p style="margin-top:10px">${p.oceanAnalysis.replace(/\n/g,'<br>')}</p>`:''}
+    </div>
+    <div class="pdf-sec">
+      <div class="pdf-sec-title">7. Considerações Finais e Recomendação</div>
+      <p>${(p.final||'—').replace(/\n/g,'<br>')}</p>
+      ${recHTML}
+    </div>
+    ${p.cvFileName?`<div class="pdf-sec"><div class="pdf-sec-title">📎 Currículo Anexo</div><p><strong>${p.cvFileName}</strong></p></div>`:''}
+    <div class="pdf-footer">
+      <span>Claves Health · Consultoria Especializada em Saúde · 100% Remota</span>
+      <span>Analista: ${p.analyst||'—'} · Data: ${dateStr}</span>
+    </div>`;
+  document.getElementById('pdf-overlay').classList.add('open');
+}
+function downloadPDF(){
+  const el=document.getElementById('pdf-content');
+  html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#ffffff'}).then(canvas=>{
+    const{jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const W=pdf.internal.pageSize.getWidth(), H=pdf.internal.pageSize.getHeight();
+    const imgData=canvas.toDataURL('image/png');
+    const total=canvas.height*(W/canvas.width);
+    let y=0;
+    while(y<total){if(y>0)pdf.addPage();pdf.addImage(imgData,'PNG',0,-y,W,total);y+=H;}
+    const name=(document.getElementById('pdf-bar-title').textContent).replace('Parecer – ','').replace(/\s+/g,'_');
+    pdf.save(`Parecer_${name}.pdf`);
+  });
+}
+</script>
+</body>
+</html>
