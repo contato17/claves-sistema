@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avaliação Comportamental – Claves Health</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0D1B2E;--blue:#1A5C96;--blue-lt:#EBF3FA;--gray:#F5F7FA;--gray2:#D1D9E0;--gray3:#6B7C93;--dark:#1A2232;--green:#1E7A4A;--red:#C0392B;--amber:#E67E22}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--gray);color:var(--dark);min-height:100vh}
+.hero{background:linear-gradient(135deg,var(--navy) 0%,#1A5C96 100%);padding:36px 24px 28px;text-align:center;color:#fff}
+.hero-logo{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:18px}
+.logo-mark{width:38px;height:38px;background:rgba(255,255,255,.15);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;border:1px solid rgba(255,255,255,.25)}
+.hero h1{font-size:22px;font-weight:700;margin-bottom:8px}
+.hero p{font-size:13px;opacity:.75;max-width:460px;margin:0 auto;line-height:1.6}
+.hero-pills{display:flex;justify-content:center;gap:10px;margin-top:16px;flex-wrap:wrap}
+.pill{background:rgba(255,255,255,.12);padding:4px 14px;border-radius:20px;font-size:12px;font-weight:600}
+.cand-banner{background:#fff;border-bottom:2px solid var(--blue-lt);padding:14px 24px;display:flex;align-items:center;gap:12px}
+.cand-banner .icon{width:36px;height:36px;background:var(--blue-lt);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.cand-banner .name{font-weight:700;font-size:14px;color:var(--navy)}
+.cand-banner .sub{font-size:12px;color:var(--gray3)}
+.wrap{max-width:700px;margin:0 auto;padding:20px 16px 48px}
+.card{background:#fff;border-radius:12px;padding:18px;margin-bottom:14px;border:1px solid var(--gray2);box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.prog-row{display:flex;justify-content:space-between;font-size:12px;color:var(--gray3);margin-bottom:6px}
+.prog-track{background:var(--gray2);border-radius:100px;height:6px;overflow:hidden}
+.prog-fill{background:linear-gradient(90deg,var(--blue),#8b5cf6);height:100%;border-radius:100px;transition:width .4s}
+.q-block{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;border:1px solid var(--gray2);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.q-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;margin-bottom:7px;text-transform:uppercase;letter-spacing:.4px}
+.q-text{font-size:14px;font-weight:500;margin-bottom:12px;line-height:1.5}
+.likert{display:flex;gap:5px}
+.lo{flex:1}
+.lo input{display:none}
+.lo label{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 3px;border:1.5px solid var(--gray2);border-radius:8px;cursor:pointer;font-size:9px;color:var(--gray3);text-align:center;transition:.15s}
+.lo label .n{font-size:15px;font-weight:700;color:#374151}
+.lo input:checked+label{border-color:var(--blue);background:var(--blue-lt)}
+.lo input:checked+label .n{color:var(--blue)}
+.likert-ends{display:flex;justify-content:space-between;font-size:10px;color:var(--gray3);margin-top:4px}
+.btn-submit{background:var(--blue);color:#fff;border:none;padding:14px 48px;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;box-shadow:0 4px 14px rgba(26,92,150,.3)}
+.btn-submit:hover{background:#155480;transform:translateY(-1px)}
+.btn-submit:disabled{background:var(--gray3);transform:none;box-shadow:none;cursor:not-allowed}
+.err{color:var(--red);font-size:13px;margin-bottom:12px;display:none;background:#fde8e8;padding:10px 14px;border-radius:8px}
+.loading{min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;background:var(--gray);color:var(--gray3);font-size:14px;gap:12px}
+.spinner{width:36px;height:36px;border:3px solid var(--gray2);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.invalid{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px;background:linear-gradient(135deg,var(--navy),#1A5C96)}
+.invalid-card{background:#fff;border-radius:20px;padding:40px;max-width:400px;text-align:center}
+.invalid-card h2{font-size:18px;font-weight:700;color:var(--navy);margin-bottom:8px}
+.invalid-card p{font-size:13px;color:var(--gray3);line-height:1.6}
+.success{min-height:100vh;background:linear-gradient(135deg,var(--navy),#1A5C96);display:flex;align-items:center;justify-content:center;padding:32px 16px}
+.success-card{background:#fff;border-radius:20px;padding:40px 32px;max-width:540px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center}
+.suc-icon{font-size:52px;margin-bottom:16px}
+.suc-title{font-size:22px;font-weight:700;color:var(--navy);margin-bottom:8px}
+.suc-msg{font-size:14px;color:var(--gray3);line-height:1.6;margin-bottom:24px}
+.ocean-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px}
+.oc{border-radius:10px;padding:12px 8px;text-align:center;border:1.5px solid}
+.oc-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.oc-pct{font-size:20px;font-weight:700}
+.oc-lv{font-size:9px;font-weight:700;margin-top:2px}
+.oc-O{border-color:#8b5cf6;background:#f5f3ff}.oc-O .oc-lbl,.oc-O .oc-pct,.oc-O .oc-lv{color:#7c3aed}
+.oc-C{border-color:#1d5fd4;background:#eff6ff}.oc-C .oc-lbl,.oc-C .oc-pct,.oc-C .oc-lv{color:#1d4ed8}
+.oc-E{border-color:#d97706;background:#fffbeb}.oc-E .oc-lbl,.oc-E .oc-pct,.oc-E .oc-lv{color:#b45309}
+.oc-A{border-color:#059669;background:#ecfdf5}.oc-A .oc-lbl,.oc-A .oc-pct,.oc-A .oc-lv{color:#065f46}
+.oc-N{border-color:#dc2626;background:#fef2f2}.oc-N .oc-lbl,.oc-N .oc-pct,.oc-N .oc-lv{color:#991b1b}
+.suc-note{background:var(--gray);border-radius:10px;padding:14px 16px;font-size:13px;color:var(--gray3);line-height:1.6;text-align:left}
+@media(max-width:480px){.ocean-grid{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+
+<div id="loading" class="loading"><div class="spinner"></div><span>Carregando avaliação...</span></div>
+<div id="invalid" class="invalid" style="display:none"><div class="invalid-card"><div style="font-size:40px;margin-bottom:16px">⚠️</div><h2>Link inválido</h2><p>Este link de avaliação não é válido ou expirou. Entre em contato com o recrutador responsável.</p></div></div>
+
+<div id="main" style="display:none">
+  <div class="hero">
+    <div class="hero-logo"><img src="https://claveshealth.github.io/claves-sistema/logo.png" style="height:36px;width:auto;object-fit:contain"><span style="font-size:17px;font-weight:700">Claves Health</span></div>
+    <h1>Avaliação Comportamental</h1>
+    <p>Instrumento baseado no modelo Big Five (OCEAN). Não há respostas certas ou erradas — responda com sinceridade.</p>
+    <div class="hero-pills"><span class="pill">50 questões</span><span class="pill">~10 minutos</span><span class="pill">Confidencial</span></div>
+  </div>
+  <div class="cand-banner" id="cand-banner" style="display:none">
+    <div class="icon">👤</div>
+    <div><div class="name" id="cand-name">—</div><div class="sub" id="cand-proc">Claves Health</div></div>
+  </div>
+  <div class="wrap">
+    <div class="card">
+      <div class="prog-row"><span>Progresso</span><span id="prog-txt">0 de 50 respondidas</span></div>
+      <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+    <div id="questions"></div>
+    <div style="text-align:center;padding:16px 0 8px">
+      <div class="err" id="err-msg">Por favor, responda todas as 50 questões antes de enviar.</div>
+      <button class="btn-submit" id="btn-submit" onclick="submitBF()">Enviar avaliação →</button>
+      <p style="font-size:11px;color:var(--gray3);margin-top:12px">Suas respostas são confidenciais e usadas apenas neste processo seletivo.</p>
+    </div>
+  </div>
+</div>
+
+<div id="success" class="success" style="display:none">
+  <div class="success-card">
+    <div class="suc-icon">✅</div>
+    <div class="suc-title">Avaliação concluída!</div>
+    <div class="suc-msg">Obrigado, <strong id="suc-name"></strong>. Seu perfil comportamental foi enviado com sucesso para a equipe Claves Health.</div>
+    <div class="ocean-grid" id="ocean-result"></div>
+    <div class="suc-note"><strong>O que acontece agora?</strong><br>A equipe irá analisar seu perfil junto com as demais etapas do processo seletivo.</div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const app = initializeApp({
+  apiKey:"AIzaSyABAMCRg84FCvR0rULz1WfAOFqWRnZY3do",
+  authDomain:"claves-ats.firebaseapp.com",
+  projectId:"claves-ats",
+  storageBucket:"claves-ats.firebasestorage.app",
+  messagingSenderId:"668667602959",
+  appId:"1:668667602959:web:0720f2f71cc4b160ac9b7a"
+});
+const db = getFirestore(app);
+const REF = doc(db, "claves_ats", "db");
+
+const QUESTIONS=[
+  {id:1,d:'O',t:'Tenho curiosidade intelectual e gosto de explorar ideias novas.',r:false},
+  {id:2,d:'O',t:'Aprecio obras de arte, música ou literatura, mesmo que não seja especialista.',r:false},
+  {id:3,d:'O',t:'Prefiro rotinas estabelecidas a experimentar coisas novas.',r:true},
+  {id:4,d:'O',t:'Tenho imaginação fértil e frequentemente fico absorto(a) em fantasias.',r:false},
+  {id:5,d:'O',t:'Fico entediado(a) com conversas abstratas ou filosóficas.',r:true},
+  {id:6,d:'O',t:'Gosto de pensar em soluções criativas para os problemas.',r:false},
+  {id:7,d:'O',t:'Prefiro o familiar ao desconhecido.',r:true},
+  {id:8,d:'O',t:'Busco aprender coisas novas regularmente, mesmo fora do meu campo.',r:false},
+  {id:9,d:'O',t:'Valorizo a tradição e a convenção social.',r:true},
+  {id:10,d:'O',t:'Tenho sensibilidade estética desenvolvida.',r:false},
+  {id:11,d:'C',t:'Sou organizado(a) e mantenho minhas coisas sempre em ordem.',r:false},
+  {id:12,d:'C',t:'Cumpro prazos com rigor e me sinto incomodado(a) quando não o faço.',r:false},
+  {id:13,d:'C',t:'Com frequência deixo tarefas inacabadas.',r:true},
+  {id:14,d:'C',t:'Planejo minhas ações antes de executá-las.',r:false},
+  {id:15,d:'C',t:'Tenho dificuldade em manter o foco por longos períodos.',r:true},
+  {id:16,d:'C',t:'Sou diligente e trabalho com afinco para atingir meus objetivos.',r:false},
+  {id:17,d:'C',t:'Ajo de modo impulsivo sem pensar nas consequências.',r:true},
+  {id:18,d:'C',t:'Sou confiável: as pessoas podem contar comigo.',r:false},
+  {id:19,d:'C',t:'Preciso de lembretes para não esquecer compromissos.',r:true},
+  {id:20,d:'C',t:'Me esforço para fazer as coisas da melhor maneira possível.',r:false},
+  {id:21,d:'E',t:'Me sinto bem no centro das atenções.',r:false},
+  {id:22,d:'E',t:'Prefiro ambientes tranquilos a festas ou reuniões grandes.',r:true},
+  {id:23,d:'E',t:'Converso facilmente com pessoas que acabei de conhecer.',r:false},
+  {id:24,d:'E',t:'Fico energizado(a) após passar tempo com muitas pessoas.',r:false},
+  {id:25,d:'E',t:'Costumo ser o(a) líder natural dos grupos que participo.',r:false},
+  {id:26,d:'E',t:'Preciso de tempo a sós para recarregar minha energia.',r:true},
+  {id:27,d:'E',t:'Sou comunicativo(a) e me expresso facilmente.',r:false},
+  {id:28,d:'E',t:'Em geral, prefiro trabalhar sozinho(a) a em equipe.',r:true},
+  {id:29,d:'E',t:'Tenho muito entusiasmo e gosto que ele apareça no meu trabalho.',r:false},
+  {id:30,d:'E',t:'Mantenho um círculo social restrito e seleto.',r:true},
+  {id:31,d:'A',t:'Me preocupo genuinamente com o bem-estar dos outros.',r:false},
+  {id:32,d:'A',t:'Costumo colocar as necessidades alheias acima das minhas.',r:false},
+  {id:33,d:'A',t:'Posso ser frio(a) e distante com as pessoas.',r:true},
+  {id:34,d:'A',t:'Confio nas pessoas e acredito em sua boa intenção.',r:false},
+  {id:35,d:'A',t:'Me irrito com facilidade quando não concordo com alguém.',r:true},
+  {id:36,d:'A',t:'Gosto de ajudar e me sentir útil para os outros.',r:false},
+  {id:37,d:'A',t:'Sou competitivo(a) e priorizo meus próprios interesses.',r:true},
+  {id:38,d:'A',t:'Sou empático(a): consigo me colocar no lugar das pessoas.',r:false},
+  {id:39,d:'A',t:'Tenho dificuldade em perdoar quando me magoam.',r:true},
+  {id:40,d:'A',t:'Acredito que a cooperação leva a melhores resultados que a competição.',r:false},
+  {id:41,d:'N',t:'Me estresso facilmente em situações de pressão.',r:false},
+  {id:42,d:'N',t:'Meu humor é estável mesmo em dias difíceis.',r:true},
+  {id:43,d:'N',t:'Tenho ansiedade frequente, mesmo sem motivo claro.',r:false},
+  {id:44,d:'N',t:'Recupero-me rapidamente de experiências negativas.',r:true},
+  {id:45,d:'N',t:'Me preocupo com o futuro mais do que a maioria das pessoas.',r:false},
+  {id:46,d:'N',t:'Mantenho a calma mesmo em situações de emergência.',r:true},
+  {id:47,d:'N',t:'Tenho oscilações de humor com frequência.',r:false},
+  {id:48,d:'N',t:'Me sinto seguro(a) e raramente me preocupo com o que os outros pensam.',r:true},
+  {id:49,d:'N',t:'Fico perturbado(a) quando algo não sai como planejado.',r:false},
+  {id:50,d:'N',t:'Lido bem com críticas e as uso de forma construtiva.',r:true},
+];
+const DM={O:'Abertura',C:'Conscienc.',E:'Extroversão',A:'Amabilidade',N:'Neuroticismo'};
+const DC={O:'#8b5cf6',C:'#1d5fd4',E:'#d97706',A:'#059669',N:'#dc2626'};
+const answers={};
+let candidateId=null, candidateData=null;
+
+function show(s){
+  ['loading','invalid','main','success'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display = id===s?'block':'none';
+  });
+}
+
+function getParam(k){ return new URLSearchParams(location.search).get(k); }
+
+async function init(){
+  candidateId = getParam('cand');
+  if(!candidateId){ show('invalid'); return; }
+  try{
+    const snap = await getDoc(REF);
+    if(!snap.exists()){ show('invalid'); return; }
+    const data = JSON.parse(snap.data().payload||'{}');
+    const cand = (data.candidates||[]).find(c=>c.id===candidateId);
+    if(!cand){ show('invalid'); return; }
+    candidateData = cand;
+    const proc = (data.processes||[]).find(p=>p.id===cand.processo);
+    document.getElementById('cand-name').textContent = cand.nome||'—';
+    document.getElementById('cand-proc').textContent = proc ? proc.titulo+' · Claves Health' : 'Claves Health';
+    document.getElementById('cand-banner').style.display = 'flex';
+    document.getElementById('suc-name').textContent = cand.nome||'candidato(a)';
+    buildQuestions();
+    show('main');
+  }catch(e){ console.error(e); show('invalid'); }
+}
+
+function buildQuestions(){
+  const c = document.getElementById('questions');
+  QUESTIONS.forEach((q,i)=>{
+    const div = document.createElement('div');
+    div.className = 'q-block';
+    div.innerHTML = `<span class="q-badge" style="background:${DC[q.d]}22;color:${DC[q.d]}">${DM[q.d]}</span>
+      <div class="q-text">${i+1}. ${q.t}</div>
+      <div class="likert">${[1,2,3,4,5].map(v=>`<div class="lo"><input type="radio" name="bfq${q.id}" id="bfq${q.id}v${v}" value="${v}"><label for="bfq${q.id}v${v}"><span class="n">${v}</span><span>${['Discordo','','Neutro','','Concordo'][v-1]}</span></label></div>`).join('')}</div>
+      <div class="likert-ends"><span>Discordo totalmente</span><span>Concordo totalmente</span></div>`;
+    c.appendChild(div);
+    div.querySelectorAll('input').forEach(r=>r.addEventListener('change',()=>{
+      answers[q.id]=parseInt(r.value);
+      const n=Object.keys(answers).length;
+      document.getElementById('prog-txt').textContent=`${n} de 50 respondidas`;
+      document.getElementById('prog-fill').style.width=(n/50*100)+'%';
+    }));
+  });
+}
+
+function calcScores(){
+  const raw={O:[],C:[],E:[],A:[],N:[]};
+  QUESTIONS.forEach(q=>{let v=answers[q.id]||3;if(q.r)v=6-v;raw[q.d].push(v);});
+  const s={};
+  Object.keys(raw).forEach(d=>{s[d]=Math.round((raw[d].reduce((a,b)=>a+b,0)/(10*5))*100);});
+  return s;
+}
+
+window.submitBF = async function(){
+  if(Object.keys(answers).length<50){
+    const err=document.getElementById('err-msg');
+    err.style.display='block';
+    const first=QUESTIONS.find(q=>!answers[q.id]);
+    if(first) document.querySelector(`[name="bfq${first.id}"]`).closest('.q-block').scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+  document.getElementById('err-msg').style.display='none';
+  const btn=document.getElementById('btn-submit');
+  btn.disabled=true; btn.textContent='Enviando...';
+  const scores=calcScores();
+  try{
+    const snap=await getDoc(REF);
+    const raw=snap.data();
+    const data=JSON.parse(raw.payload||'{}');
+    const idx=(data.candidates||[]).findIndex(c=>c.id===candidateId);
+    if(idx<0) throw new Error('Candidato não encontrado');
+    data.candidates[idx].bigfive=scores;
+    data.candidates[idx].bigfiveDate=new Date().toISOString().split('T')[0];
+    data.candidates[idx].bigfiveRelatorio=null;
+    await setDoc(REF,{payload:JSON.stringify(data),ts:Date.now()});
+    const lv=v=>v>=70?'Alto':v>=40?'Moderado':'Baixo';
+    document.getElementById('ocean-result').innerHTML=
+      ['O','C','E','A','N'].map(d=>`<div class="oc oc-${d}"><div class="oc-lbl">${DM[d]}</div><div class="oc-pct">${scores[d]}%</div><div class="oc-lv">${lv(scores[d])}</div></div>`).join('');
+    show('success');
+  }catch(e){
+    console.error(e);
+    btn.disabled=false; btn.textContent='Enviar avaliação →';
+    document.getElementById('err-msg').textContent='Erro ao enviar. Verifique sua conexão e tente novamente.';
+    document.getElementById('err-msg').style.display='block';
+  }
+};
+
+init();
+</script>
+</body>
+</html>
